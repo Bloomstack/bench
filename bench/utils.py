@@ -1,27 +1,47 @@
-import os, sys, shutil, subprocess, logging, itertools, requests, json, platform, select, pwd, grp, multiprocessing, hashlib, glob
+import glob
+import grp
+import hashlib
+import itertools
+import json
+import logging
+import multiprocessing
+import os
+import platform
+import pwd
+import select
+import shutil
+import subprocess
+import sys
 from distutils.spawn import find_executable
-import bench
+
+import requests
 import semantic_version
-from bench import env
 from six import iteritems
+
+import bench
+from bench import env
 
 
 class PatchError(Exception):
 	pass
 
+
 class CommandFailedError(Exception):
 	pass
 
-logger = logging.getLogger(__name__)
 
+logging.basicConfig(level=logging.INFO, format="(%(levelname)s) %(message)s")
+logger = logging.getLogger(__name__)
 folders_in_bench = ('apps', 'sites', 'config', 'logs', 'config/pids')
 
-def safe_decode(string, encoding = 'utf-8'):
+
+def safe_decode(string, encoding='utf-8'):
 	try:
 		string = string.decode(encoding)
 	except Exception:
 		pass
 	return string
+
 
 def get_frappe(bench_path='.'):
 	frappe = get_env_cmd('frappe', bench_path=bench_path)
@@ -30,15 +50,16 @@ def get_frappe(bench_path='.'):
 		print('bench get-app https://github.com/frappe/frappe.git')
 	return frappe
 
+
 def get_env_cmd(cmd, bench_path='.'):
 	return os.path.abspath(os.path.join(bench_path, 'env', 'bin', cmd))
+
 
 def init(path, apps_path=None, no_procfile=False, no_backups=False,
 		no_auto_update=False, frappe_path=None, frappe_branch=None, wheel_cache_dir=None,
 		verbose=False, clone_from=None, skip_redis_config_generation=False,
-		clone_without_update=False,
-		ignore_exist = False, skip_assets=False,
-		python		 = 'python3'): # Let's change when we're ready. - <achilles@frappe.io>
+		clone_without_update=False, ignore_exist=False, skip_assets=False,
+		python='python3'):  # Let's change when we're ready. - <achilles@frappe.io>
 	from .app import get_app, install_apps_from_path
 	from .config.common_site_config import make_config
 	from .config import redis
@@ -61,9 +82,7 @@ def init(path, apps_path=None, no_procfile=False, no_backups=False,
 				pass
 
 	setup_logging()
-
-	setup_env(bench_path=path, python = python)
-
+	setup_env(bench_path=path, python=python)
 	make_config(path)
 
 	if clone_from:
@@ -76,7 +95,6 @@ def init(path, apps_path=None, no_procfile=False, no_backups=False,
 
 		if apps_path:
 			install_apps_from_path(apps_path, bench_path=path)
-
 
 	bench.set_frappe_version(bench_path=path)
 	if bench.FRAPPE_VERSION > 5:
@@ -147,7 +165,7 @@ def exec_cmd(cmd, cwd='.'):
 	else:
 		stderr = stdout = None
 
-	logger.info(cmd)
+	logger.debug(cmd)
 
 	p = subprocess.Popen(cmd, cwd=cwd, shell=True, stdout=stdout, stderr=stderr,
 		universal_newlines=True)
@@ -257,12 +275,13 @@ def read_crontab():
 	return out
 
 def update_bench():
-	logger.info('updating bench')
+	print('Updating bench...')
 
 	# bench-repo folder
 	cwd = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
 	exec_cmd("git pull", cwd=cwd)
+
+	print('...done')
 
 def setup_sudoers(user):
 	if not os.path.exists('/etc/sudoers.d'):
@@ -426,7 +445,7 @@ def set_default_site(site, bench_path='.'):
 			cwd=os.path.join(bench_path, 'sites'))
 
 def update_requirements(bench_path='.'):
-	print('Updating Python libraries...')
+	print('\nUpdating Python libraries...')
 	pip = os.path.join(bench_path, 'env', 'bin', 'pip')
 
 	exec_cmd("{pip} install --upgrade pip".format(pip=pip))
@@ -436,18 +455,20 @@ def update_requirements(bench_path='.'):
 	# Update bench requirements
 	bench_req_file = os.path.join(os.path.dirname(bench.__path__[0]), 'requirements.txt')
 	install_requirements(pip, bench_req_file)
+	print('...done')
 
 	from bench.app import get_apps, install_app
 
+	print('\nRe-installing apps...')
 	for app in get_apps():
 		install_app(app, bench_path=bench_path)
+	print('...done')
 
 def update_node_packages(bench_path='.'):
-	print('Updating node packages...')
+	print('\nUpdating node packages...')
 	from bench.app import get_develop_version
 	from distutils.version import LooseVersion
 	v = LooseVersion(get_develop_version('frappe', bench_path = bench_path))
-
 
 	# After rollup was merged, frappe_version = 10.1
 	# if develop_verion is 11 and up, only then install yarn
@@ -455,6 +476,7 @@ def update_node_packages(bench_path='.'):
 		update_npm_packages(bench_path)
 	else:
 		update_yarn_packages(bench_path)
+	print('...done')
 
 def update_yarn_packages(bench_path='.'):
 	apps_dir = os.path.join(bench_path, 'apps')
@@ -467,8 +489,8 @@ def update_yarn_packages(bench_path='.'):
 	for app in os.listdir(apps_dir):
 		app_path = os.path.join(apps_dir, app)
 		if os.path.exists(os.path.join(app_path, 'package.json')):
+			print('...{} packages...'.format(app))
 			exec_cmd('yarn install', cwd=app_path)
-
 
 def update_npm_packages(bench_path='.'):
 	apps_dir = os.path.join(bench_path, 'apps')
@@ -764,7 +786,9 @@ def get_output(*cmd):
 	return out
 
 def before_update(bench_path, requirements):
+	print("\nUpdating Pillow...")
 	validate_pillow_dependencies(bench_path, requirements)
+	print("...done")
 
 def validate_pillow_dependencies(bench_path, requirements):
 	if not requirements:
@@ -773,7 +797,6 @@ def validate_pillow_dependencies(bench_path, requirements):
 	try:
 		pip = os.path.join(bench_path, 'env', 'bin', 'pip')
 		exec_cmd("{pip} install Pillow".format(pip=pip))
-
 	except CommandFailedError:
 		distro = platform.linux_distribution()
 		distro_name = distro[0].lower()

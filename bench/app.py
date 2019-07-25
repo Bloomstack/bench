@@ -161,7 +161,7 @@ def new_app(app, bench_path='.'):
 	install_app(app, bench_path=bench_path)
 
 def install_app(app, bench_path='.', verbose=False, no_cache=False):
-	logger.info('installing {}'.format(app))
+	logger.info('Installing {}...'.format(app))
 	# find_links = '--find-links={}'.format(conf.get('wheel_cache_dir')) if conf.get('wheel_cache_dir') else ''
 	find_links = ''
 	exec_cmd("{pip} install {quiet} {find_links} -e {app} {no_cache}".format(
@@ -240,7 +240,7 @@ Here are your choices:
 				add_to_excluded_apps_txt(app, bench_path=bench_path)
 				print("Skipping pull for app {}, since remote doesn't exist, and adding it to excluded apps".format(app))
 				continue
-			logger.info('pulling {0}'.format(app))
+			logger.debug('Pulling {0}'.format(app))
 			if reset:
 				exec_cmd("git fetch --all", cwd=app_dir)
 				exec_cmd("git reset --hard {remote}/{branch}".format(
