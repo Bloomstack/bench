@@ -74,11 +74,14 @@ def _update(pull=False, patch=False, build=False, update_bench=False, auto=False
 	update_config(conf, bench_path=bench_path)
 
 	if not no_backup:
-		print('Backing up sites...')
+		print('\nBacking up sites...')
 		backup_all_sites(bench_path=bench_path)
+		print('...done')
 
 	if pull:
+		print('\nPulling changes for apps...')
 		pull_all_apps(bench_path=bench_path, reset=reset)
+		print('...done')
 
 	if requirements:
 		update_requirements(bench_path=bench_path)
@@ -97,10 +100,13 @@ def _update(pull=False, patch=False, build=False, update_bench=False, auto=False
 			reload(bench.app)
 
 	if patch:
-		print('Patching sites...')
+		print('\nPatching sites...')
 		patch_sites(bench_path=bench_path)
+		print('...done')
 	if build:
+		print('\nBuilding assets...')
 		build_assets(bench_path=bench_path)
+		print('...done')
 	if version_upgrade[0] or (not version_upgrade[0] and force):
 		post_upgrade(version_upgrade[1], version_upgrade[2], bench_path=bench_path)
 	if restart_supervisor or conf.get('restart_supervisor_on_update'):
