@@ -1,39 +1,54 @@
-import os, importlib
+import difflib
+import importlib
+from pathlib import Path
+
 
 def run(bench_path):
-	source_patch_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'patches.txt')
-	target_patch_file = os.path.join(os.path.abspath(bench_path), 'patches.txt')
+	# build file paths
+	current_dir = Path(__file__).parent
+	patch_dir = Path(bench_path).resolve()
 
-	with open(source_patch_file, 'r') as f:
-		patches = [p.strip() for p in f.read().splitlines()
-			if p.strip() and not p.strip().startswith("#")]
+	source_file = current_dir / "patches.txt"
+	target_file = patch_dir / "patches.txt"
 
-	executed_patches = []
-	if os.path.exists(target_patch_file):
-		with open(target_patch_file, 'r') as f:
-			executed_patches = f.read().splitlines()
+	# get already executed patches
+	if not target_file.exists():
+		executed_patches = []
+	else:
+		executed_patches = list(filter(None, target.read_text().splitlines()))
 
-	try:
-		for patch in patches:
-			if patch not in executed_patches:
-				module = importlib.import_module(patch.split()[0])
-				execute = getattr(module, 'execute')
-				result = execute(bench_path)
+	# get the new bench patches that need to be run
+	with open(str(source_file), 'r') as source:
+		with open(str(target_file), 'r') as target:
+			diff = difflib.unified_diff(source.readlines(), target.readlines(), n=0)
 
-				if result != False:
-					executed_patches.append(patch)
+			try:
+				for line in diff:
+					# ignore diff descriptions, skipped patches and empty lines
+					for prefix in ('---', '+++', '@@', '-#'):
+						if line.startswith(prefix) or not line[1:].strip():
+							break
+					else:
+						patch = line[1:].strip().split()[0]
+						module = importlib.import_module(patch)
+						execute = getattr(module, 'execute')
+						result = execute(bench_path)
 
-	finally:
-		with open(target_patch_file, 'w') as f:
-			f.write('\n'.join(executed_patches))
+						if result is not False:
+							executed_patches.append(patch)
+			finally:
+				with open(str(target_file), 'w') as target:
+					target.write('\n'.join(executed_patches))
+					target.write('\n')  # end with an empty line
 
-			# end with an empty line
-			f.write('\n')
 
 def set_all_patches_executed(bench_path):
-	source_patch_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'patches.txt')
-	target_patch_file = os.path.join(os.path.abspath(bench_path), 'patches.txt')
+	current_dir = Path(__file__).parent
+	patch_dir = Path(bench_path).resolve()
 
-	with open(target_patch_file, 'w') as tf:
-		with open(source_patch_file, 'r') as sf:
-			tf.write(sf.read())
+	source_file = current_dir / "patches.txt"
+	target_file = patch_dir / "patches.txt"
+
+	with open(str(source_file), 'r') as source:
+		with open(str(target_file), 'w') as target:
+			target.write(source.read())

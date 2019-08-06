@@ -26,11 +26,13 @@ from bench.utils import (backup_all_sites, before_update, build_assets,
 @click.option('--no-backup', is_flag=True)
 @click.option('--force', is_flag=True)
 @click.option('--reset', is_flag=True, help="Hard resets git branch's to their new states overriding any changes and overriding rebase on pull")
-def update(pull=False, patch=False, build=False, bench=False, auto=False, restart_supervisor=False, restart_systemd=False, requirements=False, no_backup=False, force=False, reset=False):
+def update(pull=False, patch=False, build=False, bench=False, auto=False,
+	restart_supervisor=False, restart_systemd=False, requirements=False,
+	no_backup=False, force=False, reset=False):
 	"Update bench"
 
-	if not (pull or patch or build or bench or requirements):
-		pull, patch, build, bench, requirements = True, True, True, True, True
+	if not any([pull, patch, build, bench, requirements]):
+		pull = patch = build = bench = requirements = True
 
 	if auto:
 		sys.exit(1)
