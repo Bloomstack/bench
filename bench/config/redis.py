@@ -1,11 +1,17 @@
-from .common_site_config import get_config
-import re, os, subprocess, semantic_version
+import os
+import re
+import subprocess
+
+import semantic_version
+
 import bench
+from bench.config.common_site_config import get_config
 
 try:
 	from urllib.parse import urlparse
 except ImportError:
 	from urlparse import urlparse
+
 
 def generate_config(bench_path):
 	config = get_config(bench_path)
@@ -46,6 +52,7 @@ def generate_config(bench_path):
 	if not os.path.exists(pid_path):
 		os.makedirs(pid_path)
 
+
 def write_redis_config(template_name, context, bench_path):
 	template = bench.env.get_template(template_name)
 
@@ -54,6 +61,7 @@ def write_redis_config(template_name, context, bench_path):
 
 	with open(os.path.join(bench_path, 'config', template_name), 'w') as f:
 		f.write(template.render(**context))
+
 
 def get_redis_version():
 	version_string = subprocess.check_output('redis-server --version', shell=True)
@@ -65,6 +73,7 @@ def get_redis_version():
 
 	version = semantic_version.Version(version[0], partial=True)
 	return float('{major}.{minor}'.format(major=version.major, minor=version.minor))
+
 
 def get_max_redis_memory():
 	try:

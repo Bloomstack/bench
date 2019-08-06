@@ -162,7 +162,7 @@ def migrate_env(python, no_backup = False):
 		), cwd = path)
 
 		pip = osp.join(pvenv, 'bin', 'pip')
-		exec_cmd('{pip} install --upgrade pip'.format(pip=pip))
+		# exec_cmd('{pip} install --upgrade pip'.format(pip=pip))
 		exec_cmd('{pip} install --upgrade setuptools'.format(pip=pip))
 		# TODO: Options
 

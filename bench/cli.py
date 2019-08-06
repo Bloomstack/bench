@@ -1,12 +1,21 @@
+import json
+import logging
+import os
+import pwd
+import subprocess
+import sys
+
 import click
-import os, sys, logging, json, pwd, subprocess
-from bench.utils import is_root, PatchError, drop_privileges, get_env_cmd, get_cmd_output, get_frappe
+
 from bench.app import get_apps
-from bench.config.common_site_config import get_config
 from bench.commands import bench_command
+from bench.config.common_site_config import get_config
+from bench.utils import drop_privileges, get_cmd_output, get_env_cmd, get_frappe, is_root
+from bench.exceptions import PatchError
 
 logger = logging.getLogger('bench')
 from_command_line = False
+
 
 def cli():
 	global from_command_line
@@ -25,7 +34,7 @@ def cli():
 	elif len(sys.argv) > 1 and sys.argv[1] in ("--site", "--verbose", "--force", "--profile"):
 		return frappe_cmd()
 
-	elif len(sys.argv) > 1 and sys.argv[1]=="--help":
+	elif len(sys.argv) > 1 and sys.argv[1] == "--help":
 		print(click.Context(bench_command).get_help())
 		print()
 		print(get_frappe_help())
@@ -41,10 +50,12 @@ def cli():
 		except PatchError:
 			sys.exit(1)
 
+
 def check_uid():
 	if cmd_requires_root() and not is_root():
 		print('superuser privileges required for this command')
 		sys.exit(1)
+
 
 def cmd_requires_root():
 	if len(sys.argv) > 2 and sys.argv[2] in ('production', 'sudoers', 'lets-encrypt', 'fonts',
@@ -53,6 +64,7 @@ def cmd_requires_root():
 	if len(sys.argv) >= 2 and sys.argv[1] in ('patch', 'renew-lets-encrypt', 'disable-production',
 		'install'):
 		return True
+
 
 def change_dir():
 	if os.path.exists('config.json') or "init" in sys.argv:
@@ -64,6 +76,7 @@ def change_dir():
 		if os.path.exists(dir_path):
 			os.chdir(dir_path)
 
+
 def change_uid():
 	if is_root() and not cmd_requires_root():
 		frappe_user = get_config(".").get('frappe_user')
@@ -74,20 +87,24 @@ def change_uid():
 			print('You should not run this command as root')
 			sys.exit(1)
 
+
 def old_frappe_cli(bench_path='.'):
 	f = get_frappe(bench_path=bench_path)
 	os.chdir(os.path.join(bench_path, 'sites'))
 	os.execv(f, [f] + sys.argv[2:])
+
 
 def app_cmd(bench_path='.'):
 	f = get_env_cmd('python', bench_path=bench_path)
 	os.chdir(os.path.join(bench_path, 'sites'))
 	os.execv(f, [f] + ['-m', 'frappe.utils.bench_helper'] + sys.argv[1:])
 
+
 def frappe_cmd(bench_path='.'):
 	f = get_env_cmd('python', bench_path=bench_path)
 	os.chdir(os.path.join(bench_path, 'sites'))
 	os.execv(f, [f] + ['-m', 'frappe.utils.bench_helper', 'frappe'] + sys.argv[1:])
+
 
 def get_frappe_commands(bench_path='.'):
 	python = get_env_cmd('python', bench_path=bench_path)
@@ -102,6 +119,7 @@ def get_frappe_commands(bench_path='.'):
 		if hasattr(e, "stderr"):
 			print(e.stderr.decode('utf-8'))
 		return []
+
 
 def get_frappe_help(bench_path='.'):
 	python = get_env_cmd('python', bench_path=bench_path)

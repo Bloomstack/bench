@@ -1,9 +1,13 @@
-from bench.utils import get_program, exec_cmd, get_cmd_output, fix_prod_setup_perms, get_bench_name, find_executable, CommandFailedError
+import os
+import subprocess
+
+from bench.config.common_site_config import get_config
+from bench.config.nginx import make_nginx_conf
 from bench.config.supervisor import generate_supervisor_config
 from bench.config.systemd import generate_systemd_config
-from bench.config.nginx import make_nginx_conf
-from bench.config.common_site_config import get_config
-import os, subprocess
+from bench.exceptions import CommandFailedError
+from bench.utils import exec_cmd, find_executable, fix_prod_setup_perms, get_bench_name, get_cmd_output, get_program
+
 
 def setup_production(user, bench_path='.', yes=False):
 	if get_config(bench_path).get('restart_supervisor_on_update') and get_config(bench_path).get('restart_systemd_on_update'):

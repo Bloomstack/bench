@@ -1,16 +1,17 @@
 #! env python
 import os
-import git
+
 import click
-from .config.common_site_config import get_config
+import git
 import semantic_version
+
+from bench.config.common_site_config import get_config
 
 github_username = None
 github_password = None
 
-def prepare_beta_release(bench_path, app, owner='frappe', remote='upstream'):
-	from .release import get_release_message
 
+def prepare_beta_release(bench_path, app, owner='frappe', remote='upstream'):
 	beta_hotfix = ''
 	beta_master = click.prompt('Branch name for beta release', type=str)
 
@@ -26,19 +27,21 @@ def prepare_beta_release(bench_path, app, owner='frappe', remote='upstream'):
 
 	if beta_hotfix:
 		prepare_beta_hotfix(repo_path, beta_hotfix, remote)
-	
+
 	tag_name = merge_beta_release_to_develop(repo_path, beta_master, remote, version)
 	push_branches(repo_path, beta_master, beta_hotfix, remote)
 	create_github_release(repo_path, tag_name, '', owner, remote)
 
+
 def validate(bench_path):
-	from .release import validate
+	from bench.release import validate
 
 	config = get_config(bench_path)
 	validate(bench_path, config)
 
+
 def get_bummped_version(repo_path):
-	from .release import get_current_version
+	from bench.release import get_current_version
 	current_version = get_current_version(repo_path, 'master')
 
 	v = semantic_version.Version(current_version)
@@ -51,9 +54,11 @@ def get_bummped_version(repo_path):
 
 	return str(v)
 
+
 def update_branch(repo_path, remote):
-	from .release import update_branch
+	from bench.release import update_branch
 	update_branch(repo_path, 'develop', remote)
+
 
 def prepare_beta_master(repo_path, beta_master, version, remote):
 	g = git.Repo(repo_path).git
@@ -61,15 +66,16 @@ def prepare_beta_master(repo_path, beta_master, version, remote):
 
 	set_beta_version(repo_path, version)
 
+
 def set_beta_version(repo_path, version):
-	from .release import set_filename_version
-	set_filename_version(os.path.join(repo_path, os.path.basename(repo_path),'hooks.py'), version, 'staging_version')
+	from bench.release import set_filename_version
+	set_filename_version(os.path.join(repo_path, os.path.basename(repo_path), 'hooks.py'), version, 'staging_version')
 
 	repo = git.Repo(repo_path)
 	app_name = os.path.basename(repo_path)
 	repo.index.add([os.path.join(app_name, 'hooks.py')])
 	repo.index.commit('bumped to version {}'.format(version))
-	
+
 
 def prepare_beta_hotfix(repo_path, beta_hotfix, remote):
 	g = git.Repo(repo_path).git
@@ -77,7 +83,7 @@ def prepare_beta_hotfix(repo_path, beta_hotfix, remote):
 
 
 def merge_beta_release_to_develop(repo_path, beta_master, remote, version):
-	from .release import handle_merge_error
+	from bench.release import handle_merge_error
 
 	repo = git.Repo(repo_path)
 	g = repo.git
@@ -94,6 +100,7 @@ def merge_beta_release_to_develop(repo_path, beta_master, remote, version):
 
 	return tag_name
 
+
 def push_branches(repo_path, beta_master, beta_hotfix, remote):
 	repo = git.Repo(repo_path)
 	g = repo.git
@@ -105,14 +112,15 @@ def push_branches(repo_path, beta_master, beta_hotfix, remote):
 
 	if beta_hotfix:
 		args.append('{beta_hotfix}:{beta_hotfix}'.format(beta_hotfix=beta_hotfix))
-	
+
 	args.append('--tags')
 
 	print("Pushing branches")
 	print(g.push(remote, *args))
 
-def create_github_release(repo_path, tag_name, message, owner, remote):
-	from .release import create_github_release
 
-	create_github_release(repo_path, tag_name, message, remote=remote, owner=owner, 
+def create_github_release(repo_path, tag_name, message, owner, remote):
+	from bench.release import create_github_release
+
+	create_github_release(repo_path, tag_name, message, remote=remote, owner=owner,
 		repo_name=None, gh_username=github_username, gh_password=github_password)
