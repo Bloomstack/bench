@@ -1,15 +1,22 @@
-import bench, os, click, errno
-from bench.utils import exec_cmd, CommandFailedError, update_common_site_config
-from bench.config.site_config import update_site_config, remove_domain, get_domains
+import errno
+import os
+
+import click
+from crontab import CronTab
+
+import bench
+from bench.config.common_site_config import get_config
 from bench.config.nginx import make_nginx_conf
 from bench.config.production_setup import service
-from bench.config.common_site_config import get_config
-from crontab import CronTab
+from bench.config.site_config import get_domains, remove_domain, update_site_config
+from bench.exceptions import CommandFailedError
+from bench.utils import exec_cmd, update_common_site_config
 
 try:
 	from urllib.request import urlretrieve
 except ImportError:
 	from urllib import urlretrieve
+
 
 def setup_letsencrypt(site, custom_domain, bench_path, interactive):
 
@@ -21,7 +28,7 @@ def setup_letsencrypt(site, custom_domain, bench_path, interactive):
 	if custom_domain:
 		domains = get_domains(site, bench_path)
 		for d in domains:
-			if (isinstance(d, dict) and d['domain']==custom_domain):
+			if (isinstance(d, dict) and d['domain'] == custom_domain):
 				print("SSL for Domain {0} already exists".format(custom_domain))
 				return
 
@@ -64,15 +71,14 @@ def run_certbot_and_setup_ssl(site, custom_domain, bench_path, interactive=True)
 		return
 
 	ssl_path = "/etc/letsencrypt/live/{site}/".format(site=custom_domain or site)
-	ssl_config = { "ssl_certificate": os.path.join(ssl_path, "fullchain.pem"),
-					"ssl_certificate_key": os.path.join(ssl_path, "privkey.pem") }
+	ssl_config = {"ssl_certificate": os.path.join(ssl_path, "fullchain.pem"), "ssl_certificate_key": os.path.join(ssl_path, "privkey.pem")}
 
 	if custom_domain:
 		remove_domain(site, custom_domain, bench_path)
 		domains = get_domains(site, bench_path)
 		ssl_config['domain'] = custom_domain
 		domains.append(ssl_config)
-		update_site_config(site, { "domains": domains }, bench_path=bench_path)
+		update_site_config(site, {"domains": domains}, bench_path=bench_path)
 	else:
 		update_site_config(site, ssl_config, bench_path=bench_path)
 
@@ -84,7 +90,7 @@ def setup_crontab():
 	job_command = 'sudo service nginx stop && /opt/certbot-auto renew && sudo service nginx start'
 	system_crontab = CronTab(tabfile='/etc/crontab', user=True)
 	if job_command not in str(system_crontab):
-		job  = system_crontab.new(command=job_command, comment="Renew lets-encrypt every month")
+		job = system_crontab.new(command=job_command, comment="Renew lets-encrypt every month")
 		job.every().month()
 		job.enable()
 		system_crontab.write()
@@ -100,7 +106,7 @@ def get_certbot():
 	create_dir_if_missing(certbot_path)
 
 	if not os.path.isfile(certbot_path):
-		urlretrieve ("https://dl.eff.org/certbot-auto", certbot_path)
+		urlretrieve("https://dl.eff.org/certbot-auto", certbot_path)
 		os.chmod(certbot_path, 0o744)
 
 
@@ -161,7 +167,7 @@ def setup_wildcard_ssl(domain, email, bench_path, exclude_base_domain):
 		"wildcard": {
 			"domain": domain,
 			"ssl_certificate": os.path.join(ssl_path, "fullchain.pem"),
-			"ssl_certificate_key": os.path.join(ssl_path, "privkey.pem") 
+			"ssl_certificate_key": os.path.join(ssl_path, "privkey.pem")
 		}
 	}
 
@@ -171,4 +177,3 @@ def setup_wildcard_ssl(domain, email, bench_path, exclude_base_domain):
 	make_nginx_conf(bench_path)
 	print("Restrting Nginx service")
 	service('nginx', 'restart')
-	

@@ -1,11 +1,17 @@
+import os
+import sys
+
 import click
-import sys, os
-from bench.config.common_site_config import get_config, update_config
-from bench.app import pull_all_apps, is_version_upgrade, validate_branch
-from bench.utils import (update_bench, validate_upgrade, pre_upgrade, post_upgrade, before_update,
-	update_requirements, update_node_packages, backup_all_sites, patch_sites, build_assets,
-	restart_supervisor_processes, restart_systemd_processes)
+
 from bench import patches
+from bench.app import is_version_upgrade, pull_all_apps, validate_branch
+from bench.config.common_site_config import get_config, update_config
+from bench.utils import (backup_all_sites, before_update, build_assets,
+						patch_sites, post_upgrade, pre_upgrade,
+						restart_supervisor_processes,
+						restart_systemd_processes, update_bench,
+						update_node_packages, update_requirements,
+						validate_upgrade)
 
 
 @click.command('update')
@@ -35,13 +41,13 @@ def update(pull=False, patch=False, build=False, bench=False, auto=False, restar
 	if bench and conf.get('update_bench_on_update'):
 		update_bench()
 		restart_update({
-				'pull': pull,
-				'patch': patch,
-				'build': build,
-				'requirements': requirements,
-				'no-backup': no_backup,
-				'restart-supervisor': restart_supervisor,
-				'reset': reset
+			'pull': pull,
+			'patch': patch,
+			'build': build,
+			'requirements': requirements,
+			'no-backup': no_backup,
+			'restart-supervisor': restart_supervisor,
+			'reset': reset
 		})
 
 	if conf.get('release_bench'):
@@ -60,6 +66,7 @@ def update(pull=False, patch=False, build=False, bench=False, auto=False, restar
 
 	_update(pull, patch, build, bench, auto, restart_supervisor, restart_systemd, requirements, no_backup, force=force, reset=reset)
 
+
 def _update(pull=False, patch=False, build=False, update_bench=False, auto=False, restart_supervisor=False,
 		restart_systemd=False, requirements=False, no_backup=False, bench_path='.', force=False, reset=False):
 	conf = get_config(bench_path=bench_path)
@@ -70,7 +77,7 @@ def _update(pull=False, patch=False, build=False, update_bench=False, auto=False
 
 	before_update(bench_path=bench_path, requirements=requirements)
 
-	conf.update({ "maintenance_mode": 1, "pause_scheduler": 1 })
+	conf.update({"maintenance_mode": 1, "pause_scheduler": 1})
 	update_config(conf, bench_path=bench_path)
 
 	if not no_backup:
@@ -89,7 +96,8 @@ def _update(pull=False, patch=False, build=False, update_bench=False, auto=False
 
 	if version_upgrade[0] or (not version_upgrade[0] and force):
 		pre_upgrade(version_upgrade[1], version_upgrade[2], bench_path=bench_path)
-		import bench.utils, bench.app
+		import bench.utils
+		import bench.app
 		print('Reloading bench...')
 		if sys.version_info >= (3, 4):
 			import importlib
@@ -114,13 +122,14 @@ def _update(pull=False, patch=False, build=False, update_bench=False, auto=False
 	if restart_systemd or conf.get('restart_systemd_on_update'):
 		restart_systemd_processes(bench_path=bench_path)
 
-	conf.update({ "maintenance_mode": 0, "pause_scheduler": 0 })
+	conf.update({"maintenance_mode": 0, "pause_scheduler": 0})
 	update_config(conf, bench_path=bench_path)
 
 	print("_"*80)
 	print("Bench: Deployment tool for Frappe and ERPNext (https://erpnext.org).")
 	print("Open source depends on your contributions, so please contribute bug reports, patches, fixes or cash and be a part of the community")
 	print()
+
 
 @click.command('retry-upgrade')
 @click.option('--version', default=5)
@@ -130,20 +139,23 @@ def retry_upgrade(version):
 	build_assets()
 	post_upgrade(version-1, version)
 
+
 def restart_update(kwargs):
 	args = ['--'+k for k, v in list(kwargs.items()) if v]
 	os.execv(sys.argv[0], sys.argv[:2] + args)
 
+
 @click.command('switch-to-branch')
 @click.argument('branch')
 @click.argument('apps', nargs=-1)
-@click.option('--upgrade',is_flag=True)
+@click.option('--upgrade', is_flag=True)
 def switch_to_branch(branch, apps, upgrade=False):
 	"Switch all apps to specified branch, or specify apps separated by space"
 	from bench.app import switch_to_branch
 	switch_to_branch(branch=branch, apps=list(apps), upgrade=upgrade)
 	print('Switched to ' + branch)
 	print('Please run `bench update --patch` to be safe from any differences in database schema')
+
 
 @click.command('switch-to-master')
 def switch_to_master():
@@ -153,6 +165,7 @@ def switch_to_master():
 	print()
 	print('Switched to master')
 	print('Please run `bench update --patch` to be safe from any differences in database schema')
+
 
 @click.command('switch-to-develop')
 def switch_to_develop(upgrade=False):

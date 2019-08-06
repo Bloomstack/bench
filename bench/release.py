@@ -1,22 +1,24 @@
 #! env python
+import getpass
 import json
 import os
+import re
 import sys
-import semantic_version
+from time import sleep
+
+import click
 import git
 import requests
-import getpass
-import re
-from requests.auth import HTTPBasicAuth
 import requests.exceptions
-from time import sleep
-from .config.common_site_config import get_config
-import click
+import semantic_version
+from requests.auth import HTTPBasicAuth
+
+from bench.config.common_site_config import get_config
 
 branches_to_update = {
-	'develop': [],
 	'version-11-hotfix': [],
 	'version-12-hotfix': [],
+	'develop': []
 }
 
 releasable_branches = ['master']
@@ -24,8 +26,9 @@ releasable_branches = ['master']
 github_username = None
 github_password = None
 
+
 def release(bench_path, app, bump_type, from_branch, to_branch,
-		remote='upstream', owner='frappe', repo_name=None, frontport=True):
+			remote='upstream', owner='frappe', repo_name=None, frontport=True):
 
 	confirm_testing()
 	config = get_config(bench_path)
@@ -34,17 +37,17 @@ def release(bench_path, app, bump_type, from_branch, to_branch,
 		print('bench not configured to release')
 		sys.exit(1)
 
-
 	if config.get('branches_to_update'):
 		branches_to_update.update(config.get('branches_to_update'))
 
 	if config.get('releasable_branches'):
-		releasable_branches.extend(config.get('releasable_branches',[]))
+		releasable_branches.extend(config.get('releasable_branches', []))
 
 	validate(bench_path, config)
 
 	bump(bench_path, app, bump_type, from_branch=from_branch, to_branch=to_branch, owner=owner,
-		repo_name=repo_name, remote=remote, frontport=frontport)
+		 repo_name=repo_name, remote=remote, frontport=frontport)
+
 
 def validate(bench_path, config):
 	global github_username, github_password
@@ -61,6 +64,7 @@ def validate(bench_path, config):
 	r = requests.get('https://api.github.com/user', auth=HTTPBasicAuth(github_username, github_password))
 	r.raise_for_status()
 
+
 def confirm_testing():
 	print('')
 	print('================ CAUTION ==================')
@@ -68,8 +72,9 @@ def confirm_testing():
 	print('Manual Testing Checklisk: https://github.com/frappe/bench/wiki/Testing-Checklist')
 	print('')
 	print('')
-	click.confirm('Is manual testing done?', abort = True)
-	click.confirm('Have you added the change log?', abort = True)
+	click.confirm('Is manual testing done?', abort=True)
+	click.confirm('Have you added the change log?', abort=True)
+
 
 def bump(bench_path, app, bump_type, from_branch, to_branch, remote, owner, repo_name=None, frontport=True):
 	assert bump_type in ['minor', 'major', 'patch', 'stable', 'prerelease']
@@ -97,6 +102,7 @@ def bump(bench_path, app, bump_type, from_branch, to_branch, remote, owner, repo
 	create_github_release(repo_path, tag_name, message, remote=remote, owner=owner, repo_name=repo_name, prerelease=prerelease)
 	print('Released {tag} for {repo_path}'.format(tag=tag_name, repo_path=repo_path))
 
+
 def update_branches_and_check_for_changelog(repo_path, from_branch, to_branch, remote='upstream'):
 
 	update_branch(repo_path, to_branch, remote=remote)
@@ -108,6 +114,7 @@ def update_branches_and_check_for_changelog(repo_path, from_branch, to_branch, r
 	git.Repo(repo_path).git.checkout(from_branch)
 	check_for_unmerged_changelog(repo_path)
 
+
 def update_branch(repo_path, branch, remote):
 	print("updating local branch of", repo_path, 'using', remote + '/' + branch)
 
@@ -117,10 +124,12 @@ def update_branch(repo_path, branch, remote):
 	g.checkout(branch)
 	g.reset('--hard', remote+'/'+branch)
 
+
 def check_for_unmerged_changelog(repo_path):
 	current = os.path.join(repo_path, os.path.basename(repo_path), 'change_log', 'current')
 	if os.path.exists(current) and [f for f in os.listdir(current) if f != "readme.md"]:
 		raise Exception("Unmerged change log! in " + repo_path)
+
 
 def get_release_message(repo_path, from_branch, to_branch, remote='upstream'):
 	print('getting release message for', repo_path, 'comparing', to_branch, '...', from_branch)
@@ -133,6 +142,7 @@ def get_release_message(repo_path, from_branch, to_branch, remote='upstream'):
 	if log:
 		return "* " + log.replace('\n', '\n* ')
 
+
 def bump_repo(repo_path, bump_type, from_branch, to_branch):
 	current_version = get_current_version(repo_path, to_branch)
 	new_version = get_bumped_version(current_version, bump_type)
@@ -141,6 +151,7 @@ def bump_repo(repo_path, bump_type, from_branch, to_branch):
 
 	set_version(repo_path, new_version, to_branch)
 	return new_version
+
 
 def get_current_version(repo_path, to_branch):
 	# TODO clean this up!
@@ -154,9 +165,9 @@ def get_current_version(repo_path, to_branch):
 
 	with open(filename) as f:
 		contents = f.read()
-		match = re.search(r"^(\s*%s\s*=\s*['\\\"])(.+?)(['\"])(?sm)" % version_key,
-				contents)
+		match = re.search(r"^(\s*%s\s*=\s*['\\\"])(.+?)(['\"])(?sm)" % version_key, contents)
 		return match.group(2)
+
 
 def get_bumped_version(version, bump_type):
 	v = semantic_version.Version(version)
@@ -199,13 +210,14 @@ def get_bumped_version(version, bump_type):
 
 	return str(v)
 
+
 def set_version(repo_path, version, to_branch):
 	if to_branch.lower() in releasable_branches:
-		set_filename_version(os.path.join(repo_path, os.path.basename(repo_path),'__init__.py'), version, '__version__')
+		set_filename_version(os.path.join(repo_path, os.path.basename(repo_path), '__init__.py'), version, '__version__')
 	else:
-		set_filename_version(os.path.join(repo_path, os.path.basename(repo_path),'hooks.py'), version, 'staging_version')
+		set_filename_version(os.path.join(repo_path, os.path.basename(repo_path), 'hooks.py'), version, 'staging_version')
 
-	# TODO fix this
+	# TODO: fix this
 	# set_setuppy_version(repo_path, version)
 	# set_versionpy_version(repo_path, version)
 	# set_hooks_version(repo_path, version)
@@ -219,6 +231,7 @@ def set_version(repo_path, version, to_branch):
 # def set_hooks_version(repo_path, version):
 # 	set_filename_version(os.path.join(repo_path, os.path.basename(repo_path),'hooks.py'), version, 'app_version')
 
+
 def set_filename_version(filename, version_number, pattern):
 	changed = []
 
@@ -229,13 +242,14 @@ def set_filename_version(filename, version_number, pattern):
 
 	with open(filename) as f:
 		contents = re.sub(r"^(\s*%s\s*=\s*['\\\"])(.+?)(['\"])(?sm)" % pattern,
-				inject_version, f.read())
+						  inject_version, f.read())
 
 	if not changed:
 		raise Exception('Could not find %s in %s', pattern, filename)
 
 	with open(filename, 'w') as f:
 		f.write(contents)
+
 
 def commit_changes(repo_path, new_version, to_branch):
 	print('committing version change to', repo_path)
@@ -249,6 +263,7 @@ def commit_changes(repo_path, new_version, to_branch):
 		repo.index.add([os.path.join(app_name, 'hooks.py')])
 
 	repo.index.commit('bumped to version {}'.format(new_version))
+
 
 def create_release(repo_path, new_version, from_branch, to_branch, frontport=True):
 	print('creating release for version', new_version)
@@ -271,7 +286,7 @@ def create_release(repo_path, new_version, from_branch, to_branch, frontport=Tru
 
 	if frontport:
 		for branch in branches_to_update[from_branch]:
-			print ("Front porting changes to {}".format(branch))
+			print("Front porting changes to {}".format(branch))
 			print('merging {0} into'.format(to_branch), branch)
 			g.checkout(branch)
 			try:
@@ -281,6 +296,7 @@ def create_release(repo_path, new_version, from_branch, to_branch, frontport=Tru
 
 	return tag_name
 
+
 def handle_merge_error(e, source, target):
 	print('-'*80)
 	print('Error when merging {source} into {target}'.format(source=source, target=target))
@@ -288,6 +304,7 @@ def handle_merge_error(e, source, target):
 	print('You can open a new terminal, try to manually resolve the conflict/error and continue')
 	print('-'*80)
 	click.confirm('Have you manually resolved the error?', abort=True)
+
 
 def push_release(repo_path, from_branch, to_branch, remote='upstream'):
 	print('pushing branches', to_branch, from_branch, 'of', repo_path)
@@ -306,8 +323,9 @@ def push_release(repo_path, from_branch, to_branch, remote='upstream'):
 
 	print(g.push(remote, *args))
 
+
 def create_github_release(repo_path, tag_name, message, remote='upstream', owner='frappe', repo_name=None,
-		gh_username=None, gh_password=None, prerelease=False):
+						  gh_username=None, gh_password=None, prerelease=False):
 
 	print('creating release on github')
 
@@ -337,12 +355,13 @@ def create_github_release(repo_path, tag_name, message, remote='upstream', owner
 		except requests.exceptions.HTTPError:
 			print('request failed, retrying....')
 			sleep(3*i + 1)
-			if i !=2:
+			if i != 2:
 				continue
 			else:
 				print(r.json())
 				raise
 	return r
+
 
 def push_branch_for_old_major_version(bench_path, bump_type, app, repo_path, from_branch, to_branch, remote, owner):
 	if bump_type != 'major':

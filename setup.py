@@ -1,5 +1,7 @@
-from setuptools import setup, find_packages
-import re, ast
+import ast
+import re
+
+from setuptools import find_packages, setup
 
 # get version from __version__ variable in bench/__init__.py
 _version_re = re.compile(r'__version__\s+=\s+(.*)')
@@ -22,7 +24,7 @@ setup(
 	include_package_data=True,
 	install_requires=install_requires,
 	entry_points='''
-[console_scripts]
-bench=bench.cli:cli
-''',
+		[console_scripts]
+		bench=bench.cli:cli
+	''',
 )
