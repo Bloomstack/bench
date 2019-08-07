@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import sys
 from distutils.spawn import find_executable
+from pathlib import Path
 
 import requests
 import semantic_version
@@ -283,13 +284,8 @@ def read_crontab():
 
 
 def update_bench():
-	print('\nUpdating bench...')
-
-	# bench-repo folder
-	cwd = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-	exec_cmd("git pull", cwd=cwd)
-
-	print('...done')
+	BENCH_DIR = Path(__file__).resolve().parent.parent
+	exec_cmd("git pull", cwd=BENCH_DIR)
 
 
 def setup_sudoers(user):

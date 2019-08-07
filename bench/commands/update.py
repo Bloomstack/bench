@@ -4,7 +4,7 @@ import sys
 import click
 
 from bench import patches
-from bench.app import is_version_upgrade, pull_all_apps, validate_branch
+from bench.app import is_version_upgrade, pull_all_apps, validate_master_branch
 from bench.config.common_site_config import get_config, update_config
 from bench.utils import (backup_all_sites, before_update, build_assets,
 						patch_sites, post_upgrade, pre_upgrade,
@@ -44,23 +44,15 @@ def update(pull=False, patch=False, build=False, bench=False, auto=False,
 	conf = get_config(".")
 
 	if bench and conf.get('update_bench_on_update'):
+		print('\nUpdating bench...')
 		update_bench()
-		restart_update({
-			'pull': pull,
-			'patch': patch,
-			'build': build,
-			'requirements': requirements,
-			'no-backup': no_backup,
-			'restart-supervisor': restart_supervisor,
-			'reset': reset
-		})
+		print('...done')
 
 	if conf.get('release_bench'):
-		print('Release bench, cannot update')
+		print('\nRelease bench, cannot update')
 		sys.exit(1)
 
-	validate_branch()
-
+	validate_master_branch()
 	version_upgrade = is_version_upgrade()
 	if version_upgrade[0]:
 		print()
@@ -142,12 +134,7 @@ def retry_upgrade(version):
 	pull_all_apps()
 	patch_sites()
 	build_assets()
-	post_upgrade(version-1, version)
-
-
-def restart_update(kwargs):
-	args = ['--'+k for k, v in list(kwargs.items()) if v]
-	os.execv(sys.argv[0], sys.argv[:2] + args)
+	post_upgrade(version - 1, version)
 
 
 @click.command('switch-to-branch')
