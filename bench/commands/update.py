@@ -4,7 +4,7 @@ import sys
 import click
 
 from bench import patches
-from bench.app import is_version_upgrade, pull_all_apps, validate_master_branch
+from bench.app import is_version_upgrade, pull_all_apps, validate_branches
 from bench.config.common_site_config import get_config, update_config
 from bench.utils import (backup_all_sites, before_update, build_assets,
 						patch_sites, post_upgrade, pre_upgrade,
@@ -37,40 +37,39 @@ def update(pull=False, patch=False, build=False, bench=False, auto=False,
 	if auto:
 		sys.exit(1)
 
-	print('\nRunning bench patches...')
+	# update bench and run patches
 	patches.run(bench_path='.')
-	print('...done')
-
 	conf = get_config(".")
 
 	if bench and conf.get('update_bench_on_update'):
-		print('\nUpdating bench...')
 		update_bench()
-		print('...done')
 
+	# check for release bench
 	if conf.get('release_bench'):
 		print('\nRelease bench, cannot update')
 		sys.exit(1)
 
-	validate_master_branch()
-	version_upgrade = is_version_upgrade()
-	if version_upgrade[0]:
-		print()
-		print()
-		print("This update will cause a major version change in Frappe/ERPNext from {0} to {1}.".format(*version_upgrade[1:]))
-		print("This would take significant time to migrate and might break custom apps.")
-		click.confirm('Do you want to continue?', abort=True)
+	# check for obsolete branches
+	validate_branches()
 
 	_update(pull, patch, build, bench, auto, restart_supervisor, restart_systemd, requirements, no_backup, force=force, reset=reset)
 
 
 def _update(pull=False, patch=False, build=False, update_bench=False, auto=False, restart_supervisor=False,
 		restart_systemd=False, requirements=False, no_backup=False, bench_path='.', force=False, reset=False):
-	conf = get_config(bench_path=bench_path)
-	version_upgrade = is_version_upgrade(bench_path=bench_path)
+	conf = get_config(bench_path)
 
-	if version_upgrade[0] or (not version_upgrade[0] and force):
-		validate_upgrade(version_upgrade[1], version_upgrade[2], bench_path=bench_path)
+	# check for major version upgrades in Frappe
+	version_upgrade, local_version, upstream_version = is_version_upgrade(bench_path=bench_path)
+	if version_upgrade:
+		print()
+		print()
+		print("This update will cause a major version change in Frappe/ERPNext from {0} to {1}.".format(local_version, upstream_version))
+		print("This would take significant time to migrate and might break custom apps.")
+		click.confirm('Do you want to continue?', abort=True)
+
+	if version_upgrade or (not version_upgrade and force):
+		validate_upgrade(local_version, upstream_version, bench_path)
 
 	before_update(bench_path=bench_path, requirements=requirements)
 
@@ -83,7 +82,7 @@ def _update(pull=False, patch=False, build=False, update_bench=False, auto=False
 		print('...done')
 
 	if pull:
-		print('\nPulling changes for apps...')
+		print('\nUpdating apps...')
 		pull_all_apps(bench_path=bench_path, reset=reset)
 		print('...done')
 
@@ -91,8 +90,8 @@ def _update(pull=False, patch=False, build=False, update_bench=False, auto=False
 		update_requirements(bench_path=bench_path)
 		update_node_packages(bench_path=bench_path)
 
-	if version_upgrade[0] or (not version_upgrade[0] and force):
-		pre_upgrade(version_upgrade[1], version_upgrade[2], bench_path=bench_path)
+	if version_upgrade or (not version_upgrade and force):
+		pre_upgrade(local_version, upstream_version, bench_path)
 		import bench.utils
 		import bench.app
 		print('Reloading bench...')
@@ -112,8 +111,8 @@ def _update(pull=False, patch=False, build=False, update_bench=False, auto=False
 		print('\nBuilding assets...')
 		build_assets(bench_path=bench_path)
 		print('...done')
-	if version_upgrade[0] or (not version_upgrade[0] and force):
-		post_upgrade(version_upgrade[1], version_upgrade[2], bench_path=bench_path)
+	if version_upgrade or (not version_upgrade and force):
+		post_upgrade(local_version, upstream_version, bench_path)
 	if restart_supervisor or conf.get('restart_supervisor_on_update'):
 		restart_supervisor_processes(bench_path=bench_path)
 	if restart_systemd or conf.get('restart_systemd_on_update'):

@@ -9,6 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import git
 import requests
 import semantic_version
 
@@ -68,38 +69,40 @@ def check_url(url, raise_err=True):
 
 
 def get_excluded_apps(bench_path='.'):
-	try:
-		with open(os.path.join(bench_path, 'sites', 'excluded_apps.txt')) as f:
-			return f.read().strip().split('\n')
-	except IOError:
+	excluded_apps_file = Path(bench_path, 'sites', 'excluded_apps.txt')
+
+	if excluded_apps_file.exists():
+		return excluded_apps_file.read_text().splitlines()
+	else:
 		return []
 
 
 def add_to_excluded_apps_txt(app, bench_path='.'):
 	if app == 'frappe':
-		raise ValueError('Frappe app cannot be excludeed from update')
-	if app not in os.listdir('apps'):
-		raise ValueError('The app {} does not exist'.format(app))
-	apps = get_excluded_apps(bench_path=bench_path)
+		raise ValueError('Frappe app cannot be excluded from update')
+
+	if app not in [dir for dir in Path('apps').iterdir() if dir.is_dir()]:
+		raise ValueError('The app "{}" does not exist'.format(app))
+
+	apps = get_excluded_apps(bench_path)
 	if app not in apps:
 		apps.append(app)
-		return write_excluded_apps_txt(apps, bench_path=bench_path)
-
-
-def write_excluded_apps_txt(apps, bench_path='.'):
-	with open(os.path.join(bench_path, 'sites', 'excluded_apps.txt'), 'w') as f:
-		return f.write('\n'.join(apps))
+		return write_excluded_apps_txt(apps, bench_path)
 
 
 def remove_from_excluded_apps_txt(app, bench_path='.'):
-	apps = get_excluded_apps(bench_path=bench_path)
+	apps = get_excluded_apps(bench_path)
 	if app in apps:
 		apps.remove(app)
-		return write_excluded_apps_txt(apps, bench_path=bench_path)
+		return write_excluded_apps_txt(apps, bench_path)
 
 
-def get_app(git_url, branch=None, bench_path='.', build_asset_files=True, verbose=False,
-			postprocess=True):
+def write_excluded_apps_txt(apps, bench_path='.'):
+	excluded_apps_file = Path(bench_path, 'sites', 'excluded_apps.txt')
+	excluded_apps_file.write_text('\n'.join(apps))
+
+
+def get_app(git_url, branch=None, bench_path='.', build_asset_files=True, verbose=False, postprocess=True):
 	try:
 		from urlparse import urljoin
 	except ImportError:
@@ -210,121 +213,131 @@ def pull_all_apps(bench_path='.', reset=False):
 	'''Check all apps if there no local changes, pull'''
 	rebase = '--rebase' if get_config(bench_path).get('rebase_on_pull') else ''
 
-	# chech for local changes
-	if not reset:
-		for app in get_apps(bench_path=bench_path):
-			excluded_apps = get_excluded_apps()
-			if app in excluded_apps:
-				print("Skipping reset for app {}".format(app))
-				continue
-			app_dir = get_repo_dir(app, bench_path=bench_path)
-			if os.path.exists(os.path.join(app_dir, '.git')):
-				out = subprocess.check_output(["git", "status"], cwd=app_dir)
-				out = out.decode('utf-8')
-				if not re.search(r'nothing to commit, working (directory|tree) clean', out):
-					print('''
+	# check for local changes
+	excluded_apps = get_excluded_apps()
+	for app in get_apps(bench_path):
+		if app in excluded_apps:
+			print("Skipping update for app {}".format(app))
+			continue
 
+		remote = get_remote(app)
+		if not remote:
+			# remote doesn't exist, add the app to excluded_apps.txt
+			add_to_excluded_apps_txt(app, bench_path)
+			print("Skipping pull for app {}, since remote doesn't exist, and adding it to excluded apps".format(app))
+			continue
+
+		repo_dir = get_repo_dir(app, bench_path)
+		try:
+			repo = git.Repo(repo_dir)
+		except git.exc.InvalidGitRepositoryError as e:
+			continue
+
+		if not reset:
+			is_modified = repo.index.diff(None)
+			is_staged = repo.index.diff("HEAD")
+			is_untracked = repo.untracked_files
+
+			if any([is_modified, is_staged, is_untracked]):
+				print('''
 Cannot proceed with update: You have local changes in app "{0}" that are not committed.
 
 Here are your choices:
 
 1. Merge the {0} app manually with "git pull" / "git pull --rebase" and fix conflicts.
-1. Temporarily remove your changes with "git stash" or discard them completely
-	with "bench update --reset" or for individual repositries "git reset --hard"
-2. If your changes are helpful for others, send in a pull request via GitHub and
-	wait for them to be merged in the core.'''.format(app))
-					sys.exit(1)
+2. Temporarily remove your changes with "git stash" or discard them completely
+with "bench update --reset" or for individual repositries "git reset --hard"
+3. If your changes are helpful for others, send in a pull request via GitHub and
+wait for them to be merged in the core.
+				'''.format(app))
+				sys.exit(1)
 
-	excluded_apps = get_excluded_apps()
-	for app in get_apps(bench_path=bench_path):
-		if app in excluded_apps:
-			print("Skipping pull for app {}".format(app))
-			continue
-		app_dir = get_repo_dir(app, bench_path=bench_path)
-		if os.path.exists(os.path.join(app_dir, '.git')):
-			remote = get_remote(app)
-			if not remote:
-				# remote is False, i.e. remote doesn't exist, add the app to excluded_apps.txt
-				add_to_excluded_apps_txt(app, bench_path=bench_path)
-				print("Skipping pull for app {}, since remote doesn't exist, and adding it to excluded apps".format(app))
-				continue
-			logger.debug('Pulling {0}'.format(app))
-			if reset:
-				exec_cmd("git fetch --all", cwd=app_dir)
-				exec_cmd("git reset --hard {remote}/{branch}".format(remote=remote, branch=get_current_branch(app, bench_path=bench_path)), cwd=app_dir)
-			else:
-				exec_cmd("git pull {rebase} {remote} {branch}".format(rebase=rebase, remote=remote, branch=get_current_branch(app, bench_path=bench_path)), cwd=app_dir)
-			exec_cmd('find . -name "*.pyc" -delete', cwd=app_dir)
+		print('...{0}...'.format(app))
+		branch = get_current_branch(app, bench_path)
+
+		if reset:
+			repo.git.fetch("-all")
+			repo.git.reset("--hard", "{remote}/{branch}".format(remote=remote, branch=branch))
+		elif rebase:
+			repo.git.pull(rebase, remote, branch)
+		else:
+			repo.git.pull(remote, branch)
+
+		exec_cmd('find . -name "*.pyc" -delete', cwd=repo_dir)
 
 
 def is_version_upgrade(app='frappe', bench_path='.', branch=None):
-	try:
-		fetch_upstream(app, bench_path=bench_path)
-	except CommandFailedError:
-		raise InvalidRemoteException("No remote named upstream for {0}".format(app))
+	print("\nChecking for version upgrades for {app}...".format(app=app))
 
-	upstream_version = get_upstream_version(app=app, branch=branch, bench_path=bench_path)
+	try:
+		fetch_upstream(app, bench_path)
+	except CommandFailedError:
+		raise InvalidRemoteException("No remote named 'upstream' for {0}".format(app))
+
+	upstream_version = get_upstream_version(app, branch, bench_path)
 
 	if not upstream_version:
-		raise InvalidBranchException("Specified branch of app {0} is not in upstream".format(app))
+		raise InvalidBranchException("Specified branch of app {0} is not in the 'upstream' remote".format(app))
 
-	local_version = get_major_version(get_current_version(app, bench_path=bench_path))
+	local_version = get_major_version(get_current_version(app, bench_path))
 	upstream_version = get_major_version(upstream_version)
 
+	version_upgrade = False
 	if upstream_version - local_version > 0:
-		return (True, local_version, upstream_version)
+		print("...new version found")
+		version_upgrade = False
 
-	return (False, local_version, upstream_version)
+	print("...already on latest version")
+	return (version_upgrade, local_version, upstream_version)
 
 
 def get_current_frappe_version(bench_path='.'):
 	try:
-		return get_major_version(get_current_version('frappe', bench_path=bench_path))
+		return get_major_version(get_current_version('frappe', bench_path))
 	except IOError:
 		return 0
 
 
 def get_current_branch(app, bench_path='.'):
 	repo_dir = get_repo_dir(app, bench_path)
-	return get_cmd_output("basename $(git symbolic-ref -q HEAD)", cwd=repo_dir)
+	repo = git.Repo(repo_dir)
+	return repo.active_branch
 
 
 def get_remote(app, bench_path='.'):
-	repo_dir = get_repo_dir(app, bench_path=bench_path)
-	contents = subprocess.check_output(['git', 'remote', '-v'], cwd=repo_dir,
-									   stderr=subprocess.STDOUT)
-	contents = contents.decode('utf-8')
-	if re.findall('upstream[\s]+', contents):
-		return 'upstream'
-	elif not contents:
-		# if contents is an empty string => remote doesn't exist
+	repo_dir = get_repo_dir(app, bench_path)
+	repo = git.Repo(repo_dir)
+	remotes = [remote.name for remote in repo.remotes]
+
+	if not remotes:
 		return False
+	elif 'upstream' in remotes:
+		return 'upstream'
 	else:
-		# get the first remote
-		return contents.splitlines()[0].split()[0]
+		return repo.remote()
 
 
 def use_rq(bench_path):
-	bench_path = os.path.abspath(bench_path)
-	celery_app = os.path.join(bench_path, 'apps', 'frappe', 'frappe', 'celery_app.py')
-	return not os.path.exists(celery_app)
+	bench_path = Path(bench_path).resolve()
+	celery_app = bench_path.joinpath('apps', 'frappe', 'frappe', 'celery_app.py')
+	return not celery_app.exists()
 
 
 def fetch_upstream(app, bench_path='.'):
-	repo_dir = get_repo_dir(app, bench_path=bench_path)
-	return subprocess.call(["git", "fetch", "upstream"], cwd=repo_dir)
+	repo_dir = get_repo_dir(app, bench_path)
+	repo = git.Repo(repo_dir)
+	repo.git.fetch("upstream")
 
 
 def get_current_version(app, bench_path='.'):
-	repo_dir = get_repo_dir(app, bench_path=bench_path)
+	repo_dir = get_repo_dir(app, bench_path)
 	try:
-		with open(os.path.join(repo_dir, os.path.basename(repo_dir), '__init__.py')) as f:
-			return get_version_from_string(f.read())
-
+		version_file = Path(repo_dir, repo_dir.name, '__init__.py')
+		return get_version_from_string(version_file.read_text())
 	except AttributeError:
 		# backward compatibility
-		with open(os.path.join(repo_dir, 'setup.py')) as f:
-			return get_version_from_string(f.read(), field='version')
+		version_file = Path(repo_dir, 'setup.py')
+		return get_version_from_string(version_file.read_text(), field='version')
 
 
 def get_develop_version(app, bench_path='.'):
@@ -334,23 +347,24 @@ def get_develop_version(app, bench_path='.'):
 
 
 def get_upstream_version(app, branch=None, bench_path='.'):
-	repo_dir = get_repo_dir(app, bench_path=bench_path)
+	repo_dir = get_repo_dir(app, bench_path)
+	repo = git.Repo(repo_dir)
+
 	if not branch:
-		branch = get_current_branch(app, bench_path=bench_path)
+		branch = get_current_branch(app, bench_path)
+
 	try:
-		contents = subprocess.check_output(['git', 'show', 'upstream/{branch}:{app}/__init__.py'.format(branch=branch, app=app)], cwd=repo_dir, stderr=subprocess.STDOUT)
-		contents = contents.decode('utf-8')
-	except subprocess.CalledProcessError as e:
-		if b"Invalid object" in e.output:
-			return None
-		else:
-			raise
-	return get_version_from_string(contents)
+		contents = repo.git.show('upstream/{branch}:{app}/__init__.py'.format(branch=branch, app=app))
+	except git.exc.GitCommandError as e:
+		contents = None
+
+	return get_version_from_string(contents) if contents else None
 
 
 def get_upstream_url(app, bench_path='.'):
-	repo_dir = get_repo_dir(app, bench_path=bench_path)
-	return subprocess.check_output(['git', 'config', '--get', 'remote.upstream.url'], cwd=repo_dir).strip()
+	repo_dir = get_repo_dir(app, bench_path)
+	repo = git.Repo(repo_dir)
+	return repo.git.config("--get", 'remote.upstream.url')
 
 
 def get_repo_dir(app, bench_path='.'):
@@ -453,7 +467,7 @@ def get_apps_json(path):
 			return json.load(f)
 
 
-def validate_master_branch():
+def validate_branches():
 	for app in ['frappe', 'erpnext']:
 		branch = get_current_branch(app)
 
