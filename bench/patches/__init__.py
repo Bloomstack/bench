@@ -18,7 +18,7 @@ def run(bench_path):
 	if not new_patches:
 		return
 
-	# go through and run each patch
+	# go through and run each new patch
 	try:
 		for line in new_patches:
 			# ignore diff descriptions, skipped patches and empty lines
@@ -43,11 +43,11 @@ def set_all_patches_executed(bench_path):
 
 
 def get_patch_files(bench_path):
-	current_dir = Path(__file__).resolve().parent
-	patch_dir = Path(bench_path).resolve()
+	CURRENT_DIR = Path(__file__).parent
+	PATCH_DIR = Path(bench_path)
 
-	source_file = current_dir / "patches.txt"
-	target_file = patch_dir / "patches.txt"
+	source_file = CURRENT_DIR.joinpath("patches.txt")
+	target_file = PATCH_DIR.joinpath("patches.txt")
 
 	if not source_file.exists():
 		source_file.touch()

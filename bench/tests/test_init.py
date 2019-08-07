@@ -1,14 +1,21 @@
 
+import json
+import os
+import shutil
+import subprocess
 import unittest
-import json, os, shutil, subprocess
+
 import bench
-import bench.utils
 import bench.app
-import bench.config.common_site_config
 import bench.cli
+import bench.config.common_site_config
+import bench.utils
 from bench.release import get_bumped_version
+from bench.config.common_site_config import DEFAULT_CONFIG
+
 
 bench.cli.from_command_line = True
+
 
 class TestBenchInit(unittest.TestCase):
 	def setUp(self):
@@ -22,28 +29,23 @@ class TestBenchInit(unittest.TestCase):
 				shutil.rmtree(bench_path, ignore_errors=True)
 
 	def test_semantic_version(self):
-		self.assertEqual( get_bumped_version('11.0.4', 'major'), '12.0.0' )
-		self.assertEqual( get_bumped_version('11.0.4', 'minor'), '11.1.0' )
-		self.assertEqual( get_bumped_version('11.0.4', 'patch'), '11.0.5' )
-		self.assertEqual( get_bumped_version('11.0.4', 'prerelease'), '11.0.5-beta.1' )
+		self.assertEqual(get_bumped_version('11.0.4', 'major'), '12.0.0')
+		self.assertEqual(get_bumped_version('11.0.4', 'minor'), '11.1.0')
+		self.assertEqual(get_bumped_version('11.0.4', 'patch'), '11.0.5')
+		self.assertEqual(get_bumped_version('11.0.4', 'prerelease'), '11.0.5-beta.1')
 
-		self.assertEqual( get_bumped_version('11.0.5-beta.22', 'major'), '12.0.0' )
-		self.assertEqual( get_bumped_version('11.0.5-beta.22', 'minor'), '11.1.0' )
-		self.assertEqual( get_bumped_version('11.0.5-beta.22', 'patch'), '11.0.5' )
-		self.assertEqual( get_bumped_version('11.0.5-beta.22', 'prerelease'), '11.0.5-beta.23' )
-
+		self.assertEqual(get_bumped_version('11.0.5-beta.22', 'major'), '12.0.0')
+		self.assertEqual(get_bumped_version('11.0.5-beta.22', 'minor'), '11.1.0')
+		self.assertEqual(get_bumped_version('11.0.5-beta.22', 'patch'), '11.0.5')
+		self.assertEqual(get_bumped_version('11.0.5-beta.22', 'prerelease'), '11.0.5-beta.23')
 
 	def test_init(self, bench_name="test-bench", **kwargs):
 		self.init_bench(bench_name, **kwargs)
 
 		self.assert_folders(bench_name)
-
 		self.assert_virtual_env(bench_name)
-
-		self.assert_common_site_config(bench_name, bench.config.common_site_config.default_config)
-
+		self.assert_common_site_config(bench_name, DEFAULT_CONFIG)
 		self.assert_config(bench_name)
-
 		self.assert_socketio(bench_name)
 
 	def test_multiple_benches(self):
@@ -131,22 +133,17 @@ class TestBenchInit(unittest.TestCase):
 		out = subprocess.check_output(["bench", "--site", site_name, "list-apps"], cwd=bench_path)
 		self.assertTrue("erpnext" in out)
 
-
 	def test_remove_app(self):
 		self.init_bench('test-bench')
-
 		bench_path = os.path.join(self.benches_path, "test-bench")
 
 		# get app
 		bench.app.get_app("https://github.com/frappe/erpnext", "develop", bench_path=bench_path)
-
 		self.assertTrue(os.path.exists(os.path.join(bench_path, "apps", "erpnext")))
 
 		# remove it
 		bench.app.remove_app("erpnext", bench_path=bench_path)
-
 		self.assertFalse(os.path.exists(os.path.join(bench_path, "apps", "erpnext")))
-
 
 	def test_switch_to_branch(self):
 		self.init_bench('test-bench')
@@ -242,10 +239,10 @@ class TestBenchInit(unittest.TestCase):
 				self.assertTrue(search_key in f)
 
 	def assert_socketio(self, bench_name):
-		try: # for v10 and under
+		try:  # for v10 and under
 			self.assert_exists(bench_name, "node_modules")
 			self.assert_exists(bench_name, "node_modules", "socket.io")
-		except: # for v11 and above
+		except:  # for v11 and above
 			self.assert_exists(bench_name, "apps", "frappe", "node_modules")
 			self.assert_exists(bench_name, "apps", "frappe", "node_modules", "socket.io")
 
