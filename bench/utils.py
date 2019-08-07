@@ -15,6 +15,7 @@ import sys
 from distutils.spawn import find_executable
 from pathlib import Path
 
+import git
 import requests
 import semantic_version
 from six import iteritems
@@ -284,8 +285,20 @@ def read_crontab():
 
 
 def update_bench():
+	print('\nUpdating bench...')
 	BENCH_DIR = Path(__file__).resolve().parent.parent
-	exec_cmd("git pull", cwd=BENCH_DIR)
+
+	bench_repo = git.Repo(BENCH_DIR)
+	branch = bench_repo.active_branch
+
+	commits_to_pull = bench_repo.iter_commits("{branch}..upstream/master".format(branch=branch))
+	commit_count = sum(1 for commit in commits_to_pull)
+
+	if commit_count > 0:
+		bench_repo.git.pull("upstream", "master")
+		print('...done')
+	else:
+		print('...already up-to-date')
 
 
 def setup_sudoers(user):

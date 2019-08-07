@@ -5,6 +5,7 @@ from shutil import copyfile
 
 
 def run(bench_path):
+	print('\nRunning bench patches...')
 	# get patch file paths
 	source_file, target_file = get_patch_files(bench_path)
 
@@ -16,6 +17,7 @@ def run(bench_path):
 	new_patches = list(unified_diff(source_data, target_data, n=0))
 
 	if not new_patches:
+		print('...already executed')
 		return
 
 	# go through and run each new patch
@@ -35,6 +37,7 @@ def run(bench_path):
 					executed_patches.append(patch)
 	finally:
 		target_file.write_text('\n'.join(executed_patches))
+	print('...done')
 
 
 def set_all_patches_executed(bench_path):
