@@ -283,7 +283,7 @@ def read_crontab():
 
 
 def update_bench():
-	print('Updating bench...')
+	print('\nUpdating bench...')
 
 	# bench-repo folder
 	cwd = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
