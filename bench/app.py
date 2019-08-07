@@ -7,6 +7,7 @@ import re
 import shutil
 import subprocess
 import sys
+from pathlib import Path
 
 import requests
 import semantic_version
@@ -252,8 +253,7 @@ Here are your choices:
 				exec_cmd("git fetch --all", cwd=app_dir)
 				exec_cmd("git reset --hard {remote}/{branch}".format(remote=remote, branch=get_current_branch(app, bench_path=bench_path)), cwd=app_dir)
 			else:
-				exec_cmd("git pull {rebase} {remote} {branch}".format(rebase=rebase,
-					remote=remote, branch=get_current_branch(app, bench_path=bench_path)), cwd=app_dir)
+				exec_cmd("git pull {rebase} {remote} {branch}".format(rebase=rebase, remote=remote, branch=get_current_branch(app, bench_path=bench_path)), cwd=app_dir)
 			exec_cmd('find . -name "*.pyc" -delete', cwd=app_dir)
 
 
@@ -285,7 +285,7 @@ def get_current_frappe_version(bench_path='.'):
 
 
 def get_current_branch(app, bench_path='.'):
-	repo_dir = get_repo_dir(app, bench_path=bench_path)
+	repo_dir = get_repo_dir(app, bench_path)
 	return get_cmd_output("basename $(git symbolic-ref -q HEAD)", cwd=repo_dir)
 
 
@@ -354,7 +354,13 @@ def get_upstream_url(app, bench_path='.'):
 
 
 def get_repo_dir(app, bench_path='.'):
-	return os.path.join(bench_path, 'apps', app)
+	repo_dir = Path(bench_path, 'apps', app)
+
+	if not repo_dir.exists():
+		print("\nThe `{}` app does not exist".format(app))
+		sys.exit(1)
+
+	return repo_dir
 
 
 def switch_branch(branch, apps=None, bench_path='.', upgrade=False, check_upgrade=True):
@@ -447,12 +453,18 @@ def get_apps_json(path):
 			return json.load(f)
 
 
-def validate_branch():
+def validate_master_branch():
 	for app in ['frappe', 'erpnext']:
 		branch = get_current_branch(app)
 
 		if branch == "master":
-			print(''' master branch is renamed to version-11 and develop to version-12. Please switch to new branches to get future updates.
+			print('''
+{}'s master branch has been renamed to version-11.
 
-To switch to version 11, run the following commands: bench switch-to-branch version-11''')
+Please switch to the new branches to get future updates.
+
+To switch to version 11, run the following command: `bench switch-to-branch version-11`
+To switch to version 12, run the following command: `bench switch-to-branch version-12`
+To switch to develop (unstable with experimental features), run the following command: `bench switch-to-branch develop`
+			'''.format(app.title()))
 			sys.exit(1)

@@ -43,7 +43,7 @@ def set_all_patches_executed(bench_path):
 
 
 def get_patch_files(bench_path):
-	CURRENT_DIR = Path(__file__).parent
+	CURRENT_DIR = Path(__file__).resolve().parent
 	PATCH_DIR = Path(bench_path)
 
 	source_file = CURRENT_DIR.joinpath("patches.txt")
