@@ -37,7 +37,10 @@ def update(pull=False, patch=False, build=False, bench=False, auto=False,
 	if auto:
 		sys.exit(1)
 
+	print('\nRunning bench patches...')
 	patches.run(bench_path='.')
+	print('...done')
+
 	conf = get_config(".")
 
 	if bench and conf.get('update_bench_on_update'):
