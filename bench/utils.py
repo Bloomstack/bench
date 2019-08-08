@@ -287,18 +287,31 @@ def read_crontab():
 def update_bench():
 	print('\nUpdating bench...')
 	BENCH_DIR = Path(__file__).resolve().parent.parent
-
 	bench_repo = git.Repo(BENCH_DIR)
-	branch = bench_repo.active_branch
 
-	commits_to_pull = bench_repo.iter_commits("{branch}..upstream/master".format(branch=branch))
-	commit_count = sum(1 for commit in commits_to_pull)
+	# define bench repo's remote and branch
+	remote = "upstream"
+	branch = "master"
+	commit_count = get_commits_to_pull(BENCH_DIR, remote, branch)
 
 	if commit_count > 0:
-		bench_repo.git.pull("upstream", "master")
+		bench_repo.git.pull(remote, branch)
 		print('...done')
 	else:
 		print('...already up-to-date')
+
+
+def get_commits_to_pull(app_dir, remote="upstream", branch="master"):
+	try:
+		bench_repo = git.Repo(app_dir)
+	except git.exc.InvalidGitRepositoryError as e:
+		return 0
+
+	current_branch = bench_repo.active_branch
+	commits_to_pull = bench_repo.iter_commits("{current_branch}..{remote}/{branch}".format(current_branch=current_branch, remote=remote, branch=branch))
+	commit_count = sum([1 for commit in commits_to_pull])
+
+	return commit_count
 
 
 def setup_sudoers(user):

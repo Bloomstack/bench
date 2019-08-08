@@ -18,7 +18,8 @@ from bench.config.common_site_config import get_config
 from bench.exceptions import InvalidBranchException, InvalidRemoteException, MajorVersionUpgradeException
 from bench.utils import (CommandFailedError, build_assets,
 						check_git_for_shallow_clone, exec_cmd, get_cmd_output,
-						get_frappe, restart_supervisor_processes,
+						get_commits_to_pull, get_frappe,
+						restart_supervisor_processes,
 						restart_systemd_processes, run_frappe_cmd)
 
 logging.basicConfig(level="DEBUG")
@@ -220,14 +221,21 @@ def pull_all_apps(bench_path='.', reset=False):
 			print("Skipping update for app {}".format(app))
 			continue
 
+		repo_dir = get_repo_dir(app, bench_path)
 		remote = get_remote(app)
+		branch = get_current_branch(app, bench_path)
+
 		if not remote:
 			# remote doesn't exist, add the app to excluded_apps.txt
 			add_to_excluded_apps_txt(app, bench_path)
-			print("Skipping pull for app {}, since remote doesn't exist, and adding it to excluded apps".format(app))
+			print("Skipping pull for app '{}', since remote doesn't exist, and adding it to excluded apps".format(app))
 			continue
 
-		repo_dir = get_repo_dir(app, bench_path)
+		commit_count = get_commits_to_pull(repo_dir, remote, branch)
+		if commit_count == 0:
+			print("...no updates for '{}'".format(app))
+			continue
+
 		try:
 			repo = git.Repo(repo_dir)
 		except git.exc.InvalidGitRepositoryError as e:
@@ -253,7 +261,6 @@ wait for them to be merged in the core.
 				sys.exit(1)
 
 		print('...{0}...'.format(app))
-		branch = get_current_branch(app, bench_path)
 
 		if reset:
 			repo.git.fetch("-all")
@@ -263,7 +270,12 @@ wait for them to be merged in the core.
 		else:
 			repo.git.pull(remote, branch)
 
-		exec_cmd('find . -name "*.pyc" -delete', cwd=repo_dir)
+		# display diff from the pulled commits
+		print("CC: ", commit_count)
+		print(repo.git.diff("--stat", "HEAD~{}".format(commit_count)), "HEAD")
+
+		# remove compiled Python files from the app
+		[path.unlink() for path in repo_dir.rglob('*.py[co]')]
 
 
 def is_version_upgrade(app='frappe', bench_path='.', branch=None):
