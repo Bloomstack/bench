@@ -18,7 +18,7 @@ from bench.config.common_site_config import get_config
 from bench.exceptions import InvalidBranchException, InvalidRemoteException, MajorVersionUpgradeException
 from bench.utils import (CommandFailedError, build_assets,
 						check_git_for_shallow_clone, exec_cmd, get_cmd_output,
-						get_commits_to_pull, get_frappe,
+						get_commits_to_pull, get_env_cmd, get_frappe,
 						restart_supervisor_processes,
 						restart_systemd_processes, run_frappe_cmd)
 
@@ -28,29 +28,29 @@ logger = logging.getLogger(__name__)
 
 def get_apps(bench_path='.'):
 	try:
-		with open(os.path.join(bench_path, 'sites', 'apps.txt')) as f:
-			return f.read().strip().split('\n')
+		apps_txt = Path(bench_path, 'sites', 'apps.txt')
+		return apps_txt.read_text().splitlines()
 	except IOError:
 		return []
 
 
 def add_to_appstxt(app, bench_path='.'):
-	apps = get_apps(bench_path=bench_path)
+	apps = get_apps(bench_path)
 	if app not in apps:
 		apps.append(app)
-		return write_appstxt(apps, bench_path=bench_path)
+		return write_appstxt(apps, bench_path)
 
 
 def remove_from_appstxt(app, bench_path='.'):
-	apps = get_apps(bench_path=bench_path)
+	apps = get_apps(bench_path)
 	if app in apps:
 		apps.remove(app)
-		return write_appstxt(apps, bench_path=bench_path)
+		return write_appstxt(apps, bench_path)
 
 
 def write_appstxt(apps, bench_path='.'):
-	with open(os.path.join(bench_path, 'sites', 'apps.txt'), 'w') as f:
-		return f.write('\n'.join(apps))
+	apps_txt = Path(bench_path, 'sites', 'apps.txt')
+	apps_txt.write_text('\n'.join(apps))
 
 
 def check_url(url, raise_err=True):
@@ -112,102 +112,100 @@ def get_app(git_url, branch=None, bench_path='.', build_asset_files=True, verbos
 	if not check_url(git_url, raise_err=False):
 		orgs = ['frappe', 'erpnext']
 		for org in orgs:
-			url = 'https://api.github.com/repos/{org}/{app}'.format(org=org, app=git_url)
+			url = f'https://api.github.com/repos/{org}/{git_url}'
 			res = requests.get(url)
 			if res.ok:
 				data = res.json()
 				if 'name' in data:
 					if git_url == data['name']:
-						git_url = 'https://github.com/{org}/{app}'.format(org=org, app=git_url)
+						git_url = f'https://github.com/{org}/{git_url}'
 						break
 
 	# Gets repo name from URL
 	repo_name = git_url.rsplit('/', 1)[1].rsplit('.', 1)[0]
-	logger.info('getting app {}'.format(repo_name))
+	logger.info(f'getting app {repo_name}')
 	shallow_clone = '--depth 1' if check_git_for_shallow_clone() else ''
-	branch = '--branch {branch}'.format(branch=branch) if branch else ''
+	branch = f'--branch {branch}' if branch else ''
 
-	exec_cmd("git clone {git_url} {branch} {shallow_clone} --origin upstream".format(
-		git_url=git_url,
-		shallow_clone=shallow_clone,
-		branch=branch),
-		cwd=os.path.join(bench_path, 'apps'))
+	exec_cmd(f"git clone {git_url} {branch} {shallow_clone} --origin upstream", cwd=Path(bench_path, 'apps'))
 
 	# Retrieves app name from setup.py
-	app_path = os.path.join(bench_path, 'apps', repo_name, 'setup.py')
-	with open(app_path, 'rb') as f:
-		app_name = re.search(r'name\s*=\s*[\'"](.*)[\'"]', f.read().decode('utf-8')).group(1)
-		if repo_name != app_name:
-			apps_path = os.path.join(os.path.abspath(bench_path), 'apps')
-			os.rename(os.path.join(apps_path, repo_name), os.path.join(apps_path, app_name))
+	app_path = Path(bench_path, 'apps', repo_name, 'setup.py')
+	app_name = re.search(r'name\s*=\s*[\'"](.*)[\'"]', app_path.read_text()).group(1)
+
+	if repo_name != app_name:
+		apps_path = Path(bench_path).resolve().joinpath('apps')
+		Path(apps_path, repo_name).rename(Path(apps_path, app_name))
 
 	print('installing', app_name)
-	install_app(app=app_name, bench_path=bench_path, verbose=verbose)
+	install_app(app_name, bench_path, verbose)
 
 	if postprocess:
-
 		if build_asset_files:
-			build_assets(bench_path=bench_path, app=app_name)
-		conf = get_config(bench_path=bench_path)
+			build_assets(bench_path, app_name)
+
+		conf = get_config(bench_path)
 
 		if conf.get('restart_supervisor_on_update'):
-			restart_supervisor_processes(bench_path=bench_path)
+			restart_supervisor_processes(bench_path)
 		if conf.get('restart_systemd_on_update'):
-			restart_systemd_processes(bench_path=bench_path)
+			restart_systemd_processes(bench_path)
 
 
 def new_app(app, bench_path='.'):
 	# For backwards compatibility
 	app = app.lower().replace(" ", "_").replace("-", "_")
-	logger.info('creating new app {}'.format(app))
-	apps = os.path.abspath(os.path.join(bench_path, 'apps'))
+	logger.info(f'creating new app {app}')
+	apps_dir = Path(bench_path, 'apps').resolve()
 	bench.set_frappe_version(bench_path=bench_path)
 
 	if bench.FRAPPE_VERSION == 4:
-		exec_cmd("{frappe} --make_app {apps} {app}".format(frappe=get_frappe(bench_path=bench_path),
-			apps=apps, app=app))
+		exec_cmd(f"{get_frappe(bench_path)} --make_app {apps_dir} {app}")
 	else:
-		run_frappe_cmd('make-app', apps, app, bench_path=bench_path)
-	install_app(app, bench_path=bench_path)
+		run_frappe_cmd('make-app', apps_dir, app, bench_path)
+
+	install_app(app, bench_path)
 
 
 def install_app(app, bench_path='.', verbose=False, no_cache=False):
-	logger.info('Installing {}...'.format(app))
+	logger.info(f'Installing {app}...')
 	find_links = ''
-	exec_cmd("{pip} install {quiet} {find_links} -e {app} {no_cache}".format(
-		pip=os.path.join(bench_path, 'env', 'bin', 'pip'),
-		quiet="-q" if not verbose else "",
-		no_cache='--no-cache-dir' if no_cache else '',
-		app=os.path.join(bench_path, 'apps', app),
-		find_links=find_links))
-	add_to_appstxt(app, bench_path=bench_path)
+
+	pip = get_env_cmd('pip', bench_path)
+	quiet = "-q" if not verbose else ""
+	no_cache = '--no-cache-dir' if no_cache else ""
+	app_dir = Path(bench_path, 'apps', app)
+
+	exec_cmd(f"{pip} install {quiet} {find_links} -e {app_dir} {no_cache}")
+	add_to_appstxt(app, bench_path)
 
 
 def remove_app(app, bench_path='.'):
 	if not app in get_apps(bench_path):
-		print("No app named {0}".format(app))
+		print(f"No app named {app}")
 		sys.exit(1)
 
-	app_path = os.path.join(bench_path, 'apps', app)
-	site_path = os.path.join(bench_path, 'sites')
-	pip = os.path.join(bench_path, 'env', 'bin', 'pip')
+	pip = get_env_cmd('pip', bench_path)
+	app_path = Path(bench_path, 'apps', app)
+	site_path = Path(bench_path, 'sites')
 
-	for site in os.listdir(site_path):
-		req_file = os.path.join(site_path, site, 'site_config.json')
-		if os.path.exists(req_file):
+	for site in site_path.iterdir():
+		req_file = Path(site_path, site, 'site_config.json')
+		if req_file.exists():
 			out = subprocess.check_output(["bench", "--site", site, "list-apps"], cwd=bench_path).decode('utf-8')
 			if re.search(r'\b' + app + r'\b', out):
-				print("Cannot remove, app is installed on site: {0}".format(site))
+				print(f"Cannot remove, app is installed on site: {site}")
 				sys.exit(1)
 
-	exec_cmd(["{0} uninstall -y {1}".format(pip, app)])
-	remove_from_appstxt(app, bench_path)
-	shutil.rmtree(app_path)
-	run_frappe_cmd("build", bench_path=bench_path)
+	exec_cmd(f"{pip} uninstall -y {app}")  # remove the app from installed sites
+	remove_from_appstxt(app, bench_path)  # remove the app from apps.txt
+	shutil.rmtree(app_path)  # delete the app folder
+	run_frappe_cmd("build", bench_path=bench_path)  # rebuild the site assets
+
 	if get_config(bench_path).get('restart_supervisor_on_update'):
-		restart_supervisor_processes(bench_path=bench_path)
+		restart_supervisor_processes(bench_path)
 	if get_config(bench_path).get('restart_systemd_on_update'):
-		restart_systemd_processes(bench_path=bench_path)
+		restart_systemd_processes(bench_path)
 
 
 def pull_all_apps(bench_path='.', reset=False):
@@ -271,7 +269,6 @@ wait for them to be merged in the core.
 			repo.git.pull(remote, branch)
 
 		# display diff from the pulled commits
-		print("CC: ", commit_count)
 		print(repo.git.diff("--stat", "HEAD~{}".format(commit_count)), "HEAD")
 
 		# remove compiled Python files from the app
