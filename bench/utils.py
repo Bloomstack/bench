@@ -46,7 +46,7 @@ def get_frappe(bench_path='.'):
 
 
 def get_env_cmd(cmd, bench_path='.'):
-	return os.path.abspath(os.path.join(bench_path, 'env', 'bin', cmd))
+	return Path(bench_path, 'env', 'bin', cmd).resolve()
 
 
 def init(path, apps_path=None, no_procfile=False, no_backups=False,
@@ -220,7 +220,7 @@ def build_assets(bench_path='.', app=None):
 	bench.set_frappe_version(bench_path=bench_path)
 
 	if bench.FRAPPE_VERSION == 4:
-		exec_cmd("{frappe} --build".format(frappe=get_frappe(bench_path=bench_path)), cwd=os.path.join(bench_path, 'sites'))
+		exec_cmd("{frappe} --build".format(frappe=get_frappe(bench_path)), cwd=Path(bench_path, 'sites'))
 	else:
 		command = 'bench build'
 		if app:
@@ -488,23 +488,23 @@ def set_default_site(site, bench_path='.'):
 
 
 def update_requirements(bench_path='.'):
-	print('\nUpdating Python libraries...')
-	pip = os.path.join(bench_path, 'env', 'bin', 'pip')
+	print('\nUpdating python requirements...')
+	pip = get_env_cmd('pip', bench_path)
 
+	# Update pip
 	# exec_cmd("{pip} install --upgrade pip".format(pip=pip))
 
-	apps_dir = os.path.join(bench_path, 'apps')
-
 	# Update bench requirements
-	bench_req_file = os.path.join(os.path.dirname(bench.__path__[0]), 'requirements.txt')
-	install_requirements(pip, bench_req_file)
+	bench_req_file = Path(bench.__path__[0]).with_name('requirements.txt')
+	if bench_req_file.exists():
+		install_requirements(pip, bench_req_file)
 	print('...done')
 
 	from bench.app import get_apps, install_app
 
 	print('\nRe-installing apps...')
 	for app in get_apps():
-		install_app(app, bench_path=bench_path)
+		install_app(app, bench_path)
 	print('...done')
 
 
@@ -512,7 +512,7 @@ def update_node_packages(bench_path='.'):
 	print('\nUpdating node packages...')
 	from bench.app import get_develop_version
 	from distutils.version import LooseVersion
-	v = LooseVersion(get_develop_version('frappe', bench_path=bench_path))
+	v = LooseVersion(get_develop_version('frappe', bench_path))
 
 	# After rollup was merged, frappe_version = 10.1
 	# if develop_verion is 11 and up, only then install yarn
@@ -524,55 +524,54 @@ def update_node_packages(bench_path='.'):
 
 
 def update_yarn_packages(bench_path='.'):
-	apps_dir = os.path.join(bench_path, 'apps')
+	apps_dir = Path(bench_path, 'apps')
 
 	if not find_executable('yarn'):
 		print("Please install yarn using below command and try again.")
 		print("`npm install -g yarn`")
 		return
 
-	for app in os.listdir(apps_dir):
-		app_path = os.path.join(apps_dir, app)
-		if os.path.exists(os.path.join(app_path, 'package.json')):
+	for app in apps_dir.iterdir():
+		app_path = Path(apps_dir, app)
+		app_package_json = app_path.joinpath('package.json')
+		if app_package_json.exists():
 			print('...{} packages...'.format(app))
 			exec_cmd('yarn install', cwd=app_path)
 
 
 def update_npm_packages(bench_path='.'):
-	apps_dir = os.path.join(bench_path, 'apps')
+	apps_dir = Path(bench_path, 'apps')
 	package_json = {}
 
-	for app in os.listdir(apps_dir):
-		package_json_path = os.path.join(apps_dir, app, 'package.json')
+	for app in apps_dir.iterdir():
+		package_json_path = Path(apps_dir, app, 'package.json')
 
-		if os.path.exists(package_json_path):
-			with open(package_json_path, "r") as f:
-				app_package_json = json.loads(f.read())
-				# package.json is usually a dict in a dict
-				for key, value in iteritems(app_package_json):
-					if not key in package_json:
-						package_json[key] = value
+		if package_json_path.exists():
+			app_package_json = json.loads(package_json_path.read_text())
+			# package.json is usually a dict in a dict
+			for key, value in iteritems(app_package_json):
+				if not key in package_json:
+					package_json[key] = value
+				else:
+					if isinstance(value, dict):
+						package_json[key].update(value)
+					elif isinstance(value, list):
+						package_json[key].extend(value)
 					else:
-						if isinstance(value, dict):
-							package_json[key].update(value)
-						elif isinstance(value, list):
-							package_json[key].extend(value)
-						else:
-							package_json[key] = value
+						package_json[key] = value
 
-	if package_json is {}:
-		with open(os.path.join(os.path.dirname(__file__), 'package.json'), 'r') as f:
-			package_json = json.loads(f.read())
+	if not package_json:
+		package_json_file = Path(__file__).parent.joinpath('package.json')
+		package_json = json.loads(package_json_file.read_text())
 
-	with open(os.path.join(bench_path, 'package.json'), 'w') as f:
-		f.write(json.dumps(package_json, indent=1, sort_keys=True))
+	bench_package_json = Path(bench_path, 'package.json')
+	bench_package_json.write_text(json.dumps(package_json, indent=1, sort_keys=True))
 
 	exec_cmd('npm install', cwd=bench_path)
 
 
 def install_requirements(pip, req_file):
-	if os.path.exists(req_file):
-		exec_cmd("{pip} install -q -r {req_file}".format(pip=pip, req_file=req_file))
+	exec_cmd("{pip} install -q -r {req_file}".format(pip=pip, req_file=req_file))
 
 
 def backup_site(site, bench_path='.'):
@@ -690,32 +689,23 @@ def run_frappe_cmd(*args, **kwargs):
 	from bench.cli import from_command_line
 
 	bench_path = kwargs.get('bench_path', '.')
-	f = get_env_cmd('python', bench_path=bench_path)
-	sites_dir = os.path.join(bench_path, 'sites')
+	f = get_env_cmd('python', bench_path)
+	sites_dir = Path(bench_path, 'sites')
 
 	is_async = False if from_command_line else True
-	if is_async:
-		stderr = stdout = subprocess.PIPE
-	else:
-		stderr = stdout = None
+	stderr = stdout = subprocess.PIPE if is_async else None
 
-	p = subprocess.Popen((f, '-m', 'frappe.utils.bench_helper', 'frappe') + args,
-						 cwd=sites_dir, stdout=stdout, stderr=stderr)
+	p = subprocess.Popen((f, '-m', 'frappe.utils.bench_helper', 'frappe') + args, cwd=sites_dir, stdout=stdout, stderr=stderr)
 
-	if is_async:
-		return_code = print_output(p)
-	else:
-		return_code = p.wait()
-
+	return_code = print_output(p) if is_async else p.wait()
 	if return_code > 0:
 		sys.exit(return_code)
-		#raise CommandFailedError(args)
 
 
 def get_frappe_cmd_output(*args, **kwargs):
 	bench_path = kwargs.get('bench_path', '.')
-	f = get_env_cmd('python', bench_path=bench_path)
-	sites_dir = os.path.join(bench_path, 'sites')
+	f = get_env_cmd('python', bench_path)
+	sites_dir = Path(bench_path, 'sites')
 	return subprocess.check_output((f, '-m', 'frappe.utils.bench_helper', 'frappe') + args, cwd=sites_dir)
 
 

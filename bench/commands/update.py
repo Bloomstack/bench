@@ -38,7 +38,8 @@ def update(pull=False, patch=False, build=False, bench=False, auto=False,
 		sys.exit(1)
 
 	# update bench and run patches
-	patches.run(bench_path='.')
+	bench_path = '.'
+	patches.run(bench_path)
 	conf = get_config(".")
 
 	if bench and conf.get('update_bench_on_update'):
@@ -52,14 +53,8 @@ def update(pull=False, patch=False, build=False, bench=False, auto=False,
 	# check for obsolete branches
 	validate_branches()
 
-	_update(pull, patch, build, bench, auto, restart_supervisor, restart_systemd, requirements, no_backup, force=force, reset=reset)
-
-
-def _update(pull=False, patch=False, build=False, update_bench=False, auto=False, restart_supervisor=False,
-		restart_systemd=False, requirements=False, no_backup=False, bench_path='.', force=False, reset=False):
-	conf = get_config(bench_path)
-
 	# check for major version upgrades in Frappe
+	conf = get_config(bench_path)
 	version_upgrade, local_version, upstream_version = is_version_upgrade(bench_path=bench_path)
 	if version_upgrade:
 		print()
@@ -71,24 +66,24 @@ def _update(pull=False, patch=False, build=False, update_bench=False, auto=False
 	if version_upgrade or (not version_upgrade and force):
 		validate_upgrade(local_version, upstream_version, bench_path)
 
-	before_update(bench_path=bench_path, requirements=requirements)
+	before_update(bench_path, requirements)
 
 	conf.update({"maintenance_mode": 1, "pause_scheduler": 1})
-	update_config(conf, bench_path=bench_path)
+	update_config(conf, bench_path)
 
 	if not no_backup:
 		print('\nBacking up sites...')
-		backup_all_sites(bench_path=bench_path)
+		backup_all_sites(bench_path)
 		print('...done')
 
 	if pull:
 		print('\nUpdating apps...')
-		pull_all_apps(bench_path=bench_path, reset=reset)
+		pull_all_apps(bench_path, reset)
 		print('...done')
 
 	if requirements:
-		update_requirements(bench_path=bench_path)
-		update_node_packages(bench_path=bench_path)
+		update_requirements(bench_path)
+		update_node_packages(bench_path)
 
 	if version_upgrade or (not version_upgrade and force):
 		pre_upgrade(local_version, upstream_version, bench_path)
@@ -111,6 +106,7 @@ def _update(pull=False, patch=False, build=False, update_bench=False, auto=False
 		print('\nBuilding assets...')
 		build_assets(bench_path=bench_path)
 		print('...done')
+
 	if version_upgrade or (not version_upgrade and force):
 		post_upgrade(local_version, upstream_version, bench_path)
 	if restart_supervisor or conf.get('restart_supervisor_on_update'):
@@ -121,7 +117,7 @@ def _update(pull=False, patch=False, build=False, update_bench=False, auto=False
 	conf.update({"maintenance_mode": 0, "pause_scheduler": 0})
 	update_config(conf, bench_path=bench_path)
 
-	print("_"*80)
+	print("_" * 80)
 	print("Bench: Deployment tool for Frappe and ERPNext (https://erpnext.org).")
 	print("Open source depends on your contributions, so please contribute bug reports, patches, fixes or cash and be a part of the community")
 	print()
