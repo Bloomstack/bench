@@ -544,7 +544,7 @@ def update_npm_packages(bench_path='.'):
 	package_json = {}
 
 	for app in apps_dir.iterdir():
-		package_json_path = Path(apps_dir, app, 'package.json')
+		package_json_path = app.joinpath('package.json')
 
 		if package_json_path.exists():
 			app_package_json = json.loads(package_json_path.read_text())
