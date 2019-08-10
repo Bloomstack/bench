@@ -1,5 +1,6 @@
 #! env python
 import os
+from pathlib import Path
 
 import click
 import git
@@ -19,7 +20,7 @@ def prepare_beta_release(bench_path, app, owner='frappe', remote='upstream'):
 		beta_hotfix = click.prompt('Branch name for beta hotfix ({}_hotifx)'.format(beta_master), type=str)
 
 	validate(bench_path)
-	repo_path = os.path.join(bench_path, 'apps', app)
+	repo_path = Path(bench_path, 'apps', app)
 	version = get_bummped_version(repo_path)
 
 	update_branch(repo_path, remote)
@@ -69,11 +70,14 @@ def prepare_beta_master(repo_path, beta_master, version, remote):
 
 def set_beta_version(repo_path, version):
 	from bench.release import set_filename_version
-	set_filename_version(os.path.join(repo_path, os.path.basename(repo_path), 'hooks.py'), version, 'staging_version')
+
+	repo_path = Path(repo_path)
+	repo_hooks_path = Path(repo_path, repo_path.name, 'hooks.py')
+
+	set_filename_version(repo_hooks_path, version, 'staging_version')
 
 	repo = git.Repo(repo_path)
-	app_name = os.path.basename(repo_path)
-	repo.index.add([os.path.join(app_name, 'hooks.py')])
+	repo.index.add([Path(repo_path.name, 'hooks.py')])
 	repo.index.commit('bumped to version {}'.format(version))
 
 

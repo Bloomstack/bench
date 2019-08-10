@@ -1,5 +1,9 @@
+import copy
+import os
+import sys
+from pathlib import Path
+
 import click
-import sys, os, copy
 
 
 @click.command('start')
@@ -24,6 +28,7 @@ def restart(web, supervisor, systemd):
 		restart_supervisor_processes(bench_path='.', web_workers=web)
 	if get_config('.').get('restart_systemd_on_update') or systemd:
 		restart_systemd_processes(bench_path='.', web_workers=web)
+
 
 @click.command('set-nginx-port')
 @click.argument('site')
@@ -83,11 +88,13 @@ def download_translations():
 	from bench.utils import download_translations_p
 	download_translations_p()
 
+
 @click.command('renew-lets-encrypt')
 def renew_lets_encrypt():
 	"Renew Let's Encrypt certificate"
 	from bench.config.lets_encrypt import renew_certs
 	renew_certs()
+
 
 @click.command()
 def shell(bench_path='.'):
@@ -98,8 +105,10 @@ def shell(bench_path='.'):
 		print("sites dir doesn't exist")
 		sys.exit(1)
 	env = copy.copy(os.environ)
-	env['PS1'] = '(' + os.path.basename(os.path.dirname(os.path.abspath(__file__))) + ')' + env.get('PS1', '')
-	env['PATH'] = os.path.dirname(os.path.abspath(os.path.join('env','bin')) + ':' + env['PATH'])
+	env['PS1'] = '(' + os.path.basename(os.path.dirname(
+		os.path.abspath(__file__))) + ')' + env.get('PS1', '')
+	env['PATH'] = os.path.dirname(os.path.abspath(
+		Path('env', 'bin')) + ':' + env['PATH'])
 	os.chdir('sites')
 	os.execve(env['SHELL'], [env['SHELL']], env)
 
@@ -109,8 +118,8 @@ def shell(bench_path='.'):
 def backup_site(site):
 	"backup site"
 	from bench.utils import get_sites, backup_site
-	if not site in get_sites(bench_path='.'):
-		print('site not found')
+	if site not in get_sites(bench_path='.'):
+		print(f"Site '{site}' not found")
 		sys.exit(1)
 	backup_site(site, bench_path='.')
 
@@ -136,7 +145,7 @@ def release(app, bump_type, from_branch, to_branch, owner, repo_name, remote, do
 	from bench.release import release
 	frontport = not dont_frontport
 	release(bench_path='.', app=app, bump_type=bump_type, from_branch=from_branch, to_branch=to_branch,
-		remote=remote, owner=owner, repo_name=repo_name, frontport=frontport)
+			remote=remote, owner=owner, repo_name=repo_name, frontport=frontport)
 
 
 @click.command('prepare-beta-release')

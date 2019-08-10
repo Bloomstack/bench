@@ -38,8 +38,8 @@ def safe_decode(string, encoding='utf-8'):
 
 
 def get_frappe(bench_path='.'):
-	frappe = get_env_cmd('frappe', bench_path=bench_path)
-	if not os.path.exists(frappe):
+	frappe = get_env_cmd('frappe', bench_path)
+	if not frappe.exists():
 		print('frappe app is not installed. Run the following command to install frappe')
 		print('bench get-app https://github.com/frappe/frappe.git')
 	return frappe
@@ -91,9 +91,8 @@ def init(path, apps_path=None, no_procfile=False, no_backups=False,
 			install_apps_from_path(apps_path, bench_path=path)
 
 	bench.set_frappe_version(bench_path=path)
-	if bench.FRAPPE_VERSION > 5:
-		if not skip_assets:
-			update_node_packages(bench_path=path)
+	if bench.FRAPPE_VERSION > 5 and not skip_assets:
+		update_node_packages(bench_path=path)
 
 	set_all_patches_executed(bench_path=path)
 	if not skip_assets:
@@ -190,13 +189,13 @@ def which(executable, raise_err=False):
 
 def setup_env(bench_path='.', python='python3'):
 	python = which(python, raise_err=True)
-	pip = os.path.join('env', 'bin', 'pip')
+	pip = Path('env', 'bin', 'pip')
 
-	exec_cmd('virtualenv -q {} -p {}'.format('env', python), cwd=bench_path)
-	# exec_cmd('{} -q install --upgrade pip'.format(pip), cwd=bench_path)
-	exec_cmd('{} -q install wheel'.format(pip), cwd=bench_path)
-	exec_cmd('{} -q install six'.format(pip), cwd=bench_path)
-	exec_cmd('{} -q install -e git+https://github.com/frappe/python-pdfkit.git#egg=pdfkit'.format(pip), cwd=bench_path)
+	exec_cmd(f'virtualenv -q env -p {python}', cwd=bench_path)
+	# exec_cmd(f'{pip} -q install --upgrade pip', cwd=bench_path)
+	exec_cmd(f'{pip} -q install wheel', cwd=bench_path)
+	exec_cmd(f'{pip} -q install six', cwd=bench_path)
+	exec_cmd(f'{pip} -q install -e git+https://github.com/frappe/python-pdfkit.git#egg=pdfkit', cwd=bench_path)
 
 
 def setup_socketio(bench_path='.'):
@@ -205,33 +204,22 @@ def setup_socketio(bench_path='.'):
 
 
 def patch_sites(bench_path='.'):
-	bench.set_frappe_version(bench_path=bench_path)
-
 	try:
-		if bench.FRAPPE_VERSION == 4:
-			exec_cmd("{frappe} --latest all".format(frappe=get_frappe(bench_path=bench_path)), cwd=os.path.join(bench_path, 'sites'))
-		else:
-			run_frappe_cmd('--site', 'all', 'migrate', bench_path=bench_path)
+		run_frappe_cmd('--site', 'all', 'migrate', bench_path=bench_path)
 	except subprocess.CalledProcessError:
 		raise PatchError
 
 
 def build_assets(bench_path='.', app=None):
-	bench.set_frappe_version(bench_path=bench_path)
-
-	if bench.FRAPPE_VERSION == 4:
-		exec_cmd("{frappe} --build".format(frappe=get_frappe(bench_path)), cwd=Path(bench_path, 'sites'))
+	if app:
+		exec_cmd(f'bench build --app {app}', cwd=bench_path)
 	else:
-		command = 'bench build'
-		if app:
-			command += ' --app {}'.format(app)
-		exec_cmd(command, cwd=bench_path)
+		exec_cmd('bench build', cwd=bench_path)
 
 
 def get_sites(bench_path='.'):
-	sites_dir = os.path.join(bench_path, "sites")
-	sites = [site for site in os.listdir(sites_dir)
-		if os.path.isdir(os.path.join(sites_dir, site)) and site not in ('assets',)]
+	sites_dir = Path(bench_path, "sites")
+	sites = [site.name for site in sites_dir.iterdir() if site.is_dir() and site.name not in ('assets',)]
 	return sites
 
 
@@ -240,28 +228,27 @@ def get_sites_dir(bench_path='.'):
 
 
 def get_bench_dir(bench_path='.'):
-	return os.path.abspath(bench_path)
+	bench_path = Path(bench_path)
+	return bench_path.resolve()
 
 
 def setup_auto_update(bench_path='.'):
-	logger.info('setting up auto update')
-	add_to_crontab('0 10 * * * cd {bench_dir} &&  {bench} update --auto >> {logfile} 2>&1'.format(bench_dir=get_bench_dir(bench_path=bench_path),
-		bench=os.path.join(get_bench_dir(bench_path=bench_path), 'env', 'bin', 'bench'),
-		logfile=os.path.join(get_bench_dir(bench_path=bench_path), 'logs', 'auto_update_log.log')))
+	logger.info('Setting up auto update')
+	bench_dir = get_bench_dir(bench_path)
+	add_to_crontab('0 10 * * * cd {bench_dir} &&  {bench} update --auto >> {logfile} 2>&1'.format(
+		bench_dir=bench_dir,
+		bench=Path(bench_dir, 'env', 'bin', 'bench'),
+		logfile=Path(bench_dir, 'logs', 'auto_update_log.log')
+	))
 
 
 def setup_backups(bench_path='.'):
-	logger.info('setting up backups')
-	bench_dir = get_bench_dir(bench_path=bench_path)
-	bench.set_frappe_version(bench_path=bench_path)
-
-	if bench.FRAPPE_VERSION == 4:
-		backup_command = "cd {sites_dir} && {frappe} --backup all".format(frappe=get_frappe(bench_path=bench_path),)
-	else:
-		backup_command = "cd {bench_dir} && {bench} --site all backup".format(bench_dir=bench_dir, bench=sys.argv[0])
+	logger.info('Setting up backups')
+	bench_dir = get_bench_dir(bench_path)
+	backup_command = f"cd {bench_dir} && {sys.argv[0]} --site all backup"
 
 	add_to_crontab('0 */6 * * *  {backup_command} >> {logfile} 2>&1'.format(backup_command=backup_command,
-		logfile=os.path.join(get_bench_dir(bench_path=bench_path), 'logs', 'backup.log')))
+		logfile=Path(bench_dir, 'logs', 'backup.log')))
 
 
 def add_to_crontab(line):
@@ -576,18 +563,12 @@ def install_requirements(pip, req_file):
 
 
 def backup_site(site, bench_path='.'):
-	bench.set_frappe_version(bench_path=bench_path)
-
-	if bench.FRAPPE_VERSION == 4:
-		exec_cmd("{frappe} --backup {site}".format(frappe=get_frappe(bench_path=bench_path), site=site),
-			cwd=os.path.join(bench_path, 'sites'))
-	else:
-		run_frappe_cmd('--site', site, 'backup', bench_path=bench_path)
+	run_frappe_cmd('--site', site, 'backup', bench_path=bench_path)
 
 
 def backup_all_sites(bench_path='.'):
-	for site in get_sites(bench_path=bench_path):
-		backup_site(site, bench_path=bench_path)
+	for site in get_sites(bench_path):
+		backup_site(site, bench_path)
 
 
 def is_root():
@@ -848,25 +829,21 @@ def validate_pillow_dependencies(bench_path, requirements):
 		return
 
 	try:
-		pip = os.path.join(bench_path, 'env', 'bin', 'pip')
+		pip = Path(bench_path, 'env', 'bin', 'pip')
 		exec_cmd("{pip} install Pillow".format(pip=pip))
 	except CommandFailedError:
-		distro = platform.linux_distribution()
-		distro_name = distro[0].lower()
-		if "centos" in distro_name or "fedora" in distro_name:
+		distname, version, id = platform.linux_distribution()
+		distro_name = distname.lower()
+		if any([dist in distro_name for dist in ["centos", "fedora"]]):
 			print("Please install these dependencies using the command:")
 			print("sudo yum install libtiff-devel libjpeg-devel libzip-devel freetype-devel lcms2-devel libwebp-devel tcl-devel tk-devel")
-
 			raise
-
-		elif "ubuntu" in distro_name or "elementary os" in distro_name or "debian" in distro_name:
+		elif any([dist in distro_name for dist in ["ubuntu", "elementary os", "debian"]]):
 			print("Please install these dependencies using the command:")
-
-			if "ubuntu" in distro_name and distro[1] == "12.04":
+			if "ubuntu" in distro_name and version == "12.04":
 				print("sudo apt-get install -y libtiff4-dev libjpeg8-dev zlib1g-dev libfreetype6-dev liblcms2-dev libwebp-dev tcl8.5-dev tk8.5-dev python-tk")
 			else:
 				print("sudo apt-get install -y libtiff5-dev libjpeg8-dev zlib1g-dev libfreetype6-dev liblcms2-dev libwebp-dev tcl8.6-dev tk8.6-dev python-tk")
-
 			raise
 
 

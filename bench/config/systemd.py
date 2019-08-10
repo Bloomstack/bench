@@ -1,20 +1,24 @@
-import os, getpass, click
+import getpass
+import os
+from pathlib import Path
+
+import click
+
 import bench
-from bench.utils import exec_cmd
 from bench.app import get_current_frappe_version, use_rq
-from bench.utils import get_bench_name, find_executable
-from bench.config.common_site_config import get_config, update_config, get_gunicorn_workers
+from bench.config.common_site_config import get_config, get_gunicorn_workers, update_config
+from bench.utils import exec_cmd, find_executable, get_bench_name
+
 
 def generate_systemd_config(bench_path, user=None, yes=False,
-	stop=False, create_symlinks=False,
-	delete_symlinks=False):
+	stop=False, create_symlinks=False, delete_symlinks=False):
 
 	if not user:
 		user = getpass.getuser()
 
-	config = get_config(bench_path=bench_path)
+	config = get_config(bench_path)
 
-	bench_dir = os.path.abspath(bench_path)
+	bench_dir = Path(bench_path).resolve()
 	bench_name = get_bench_name(bench_path)
 
 	if stop:
@@ -32,26 +36,26 @@ def generate_systemd_config(bench_path, user=None, yes=False,
 	number_of_workers = config.get('background_workers') or 1
 	background_workers = []
 	for i in range(number_of_workers):
-		background_workers.append(get_bench_name(bench_path) + "-frappe-default-worker@" + str(i+1) + ".service")
+		background_workers.append(get_bench_name(bench_path) + "-frappe-default-worker@" + str(i + 1) + ".service")
 
 	for i in range(number_of_workers):
-		background_workers.append(get_bench_name(bench_path) + "-frappe-short-worker@" + str(i+1) + ".service")
+		background_workers.append(get_bench_name(bench_path) + "-frappe-short-worker@" + str(i + 1) + ".service")
 
 	for i in range(number_of_workers):
-		background_workers.append(get_bench_name(bench_path) + "-frappe-long-worker@" + str(i+1) + ".service")
+		background_workers.append(get_bench_name(bench_path) + "-frappe-long-worker@" + str(i + 1) + ".service")
 
 	bench_info = {
 		"bench_dir": bench_dir,
-		"sites_dir": os.path.join(bench_dir, 'sites'),
+		"sites_dir": Path(bench_dir, 'sites'),
 		"user": user,
 		"frappe_version": get_current_frappe_version(bench_path),
 		"use_rq": use_rq(bench_path),
 		"http_timeout": config.get("http_timeout", 120),
 		"redis_server": find_executable('redis-server'),
 		"node": find_executable('node') or find_executable('nodejs'),
-		"redis_cache_config": os.path.join(bench_dir, 'config', 'redis_cache.conf'),
-		"redis_socketio_config": os.path.join(bench_dir, 'config', 'redis_socketio.conf'),
-		"redis_queue_config": os.path.join(bench_dir, 'config', 'redis_queue.conf'),
+		"redis_cache_config": Path(bench_dir, 'config', 'redis_cache.conf'),
+		"redis_socketio_config": Path(bench_dir, 'config', 'redis_socketio.conf'),
+		"redis_queue_config": Path(bench_dir, 'config', 'redis_queue.conf'),
 		"webserver_port": config.get('webserver_port', 8000),
 		"gunicorn_workers": config.get('gunicorn_workers', get_gunicorn_workers()["gunicorn_workers"]),
 		"bench_name": get_bench_name(bench_path),
@@ -60,8 +64,7 @@ def generate_systemd_config(bench_path, user=None, yes=False,
 	}
 
 	if not yes:
-		click.confirm('current systemd configuration will be overwritten. Do you want to continue?',
-			abort=True)
+		click.confirm('current systemd configuration will be overwritten. Do you want to continue?', abort=True)
 
 	setup_systemd_directory(bench_path)
 	setup_main_config(bench_info, bench_path)
@@ -72,18 +75,19 @@ def generate_systemd_config(bench_path, user=None, yes=False,
 	update_config({'restart_systemd_on_update': True}, bench_path=bench_path)
 	update_config({'restart_supervisor_on_update': False}, bench_path=bench_path)
 
+
 def setup_systemd_directory(bench_path):
-	if not os.path.exists(os.path.join(bench_path, 'config', 'systemd')):
-		os.makedirs(os.path.join(bench_path, 'config', 'systemd'))
+	systemd_dir = Path(bench_path, 'config', 'systemd')
+	systemd_dir.mkdir(parents=True, exist_ok=True)
+
 
 def setup_main_config(bench_info, bench_path):
 	# Main config
 	bench_template = bench.env.get_template('systemd/frappe-bench.target')
 	bench_config = bench_template.render(**bench_info)
-	bench_config_path = os.path.join(bench_path, 'config', 'systemd' , bench_info.get("bench_name") + '.target')
+	bench_config_path = Path(bench_path, 'config', 'systemd', bench_info.get("bench_name") + '.target')
+	bench_config_path.write_text(bench_config)
 
-	with open(bench_config_path, 'w') as f:
-		f.write(bench_config)
 
 def setup_workers_config(bench_info, bench_path):
 	# Worker Group
@@ -99,26 +103,19 @@ def setup_workers_config(bench_info, bench_path):
 	bench_long_worker_config = bench_long_worker_template.render(**bench_info)
 	bench_schedule_worker_config = bench_schedule_worker_template.render(**bench_info)
 
-	bench_workers_target_config_path = os.path.join(bench_path, 'config', 'systemd' , bench_info.get("bench_name") + '-workers.target')
-	bench_default_worker_config_path = os.path.join(bench_path, 'config', 'systemd' , bench_info.get("bench_name") + '-frappe-default-worker@.service')
-	bench_short_worker_config_path = os.path.join(bench_path, 'config', 'systemd' , bench_info.get("bench_name") + '-frappe-short-worker@.service')
-	bench_long_worker_config_path = os.path.join(bench_path, 'config', 'systemd' , bench_info.get("bench_name") + '-frappe-long-worker@.service')
-	bench_schedule_worker_config_path = os.path.join(bench_path, 'config', 'systemd' , bench_info.get("bench_name") + '-frappe-schedule.service')
+	systemd_dir = Path(bench_path, 'config', 'systemd')
+	bench_workers_target_config_path = systemd_dir.joinpath(bench_info.get("bench_name") + '-workers.target')
+	bench_default_worker_config_path = systemd_dir.joinpath(bench_info.get("bench_name") + '-frappe-default-worker@.service')
+	bench_short_worker_config_path = systemd_dir.joinpath(bench_info.get("bench_name") + '-frappe-short-worker@.service')
+	bench_long_worker_config_path = systemd_dir.joinpath(bench_info.get("bench_name") + '-frappe-long-worker@.service')
+	bench_schedule_worker_config_path = systemd_dir.joinpath(bench_info.get("bench_name") + '-frappe-schedule.service')
 
-	with open(bench_workers_target_config_path, 'w') as f:
-		f.write(bench_workers_target_config)
+	bench_workers_target_config_path.write_text(bench_workers_target_config)
+	bench_default_worker_config_path.write_text(bench_default_worker_config)
+	bench_short_worker_config_path.write_text(bench_short_worker_config)
+	bench_long_worker_config_path.write_text(bench_long_worker_config)
+	bench_schedule_worker_config_path.write_text(bench_schedule_worker_config)
 
-	with open(bench_default_worker_config_path, 'w') as f:
-		f.write(bench_default_worker_config)
-
-	with open(bench_short_worker_config_path, 'w') as f:
-		f.write(bench_short_worker_config)
-
-	with open(bench_long_worker_config_path, 'w') as f:
-		f.write(bench_long_worker_config)
-
-	with open(bench_schedule_worker_config_path, 'w') as f:
-		f.write(bench_schedule_worker_config)
 
 def setup_web_config(bench_info, bench_path):
 	# Web Group
@@ -130,18 +127,15 @@ def setup_web_config(bench_info, bench_path):
 	bench_web_service_config = bench_web_service_template.render(**bench_info)
 	bench_node_socketio_config = bench_node_socketio_template.render(**bench_info)
 
-	bench_web_target_config_path = os.path.join(bench_path, 'config', 'systemd' , bench_info.get("bench_name") + '-web.target')
-	bench_web_service_config_path = os.path.join(bench_path, 'config', 'systemd' , bench_info.get("bench_name") + '-frappe-web.service')
-	bench_node_socketio_config_path = os.path.join(bench_path, 'config', 'systemd' , bench_info.get("bench_name") + '-node-socketio.service')
+	systemd_dir = Path(bench_path, 'config', 'systemd')
+	bench_web_target_config_path = systemd_dir.joinpath(bench_info.get("bench_name") + '-web.target')
+	bench_web_service_config_path = systemd_dir.joinpath(bench_info.get("bench_name") + '-frappe-web.service')
+	bench_node_socketio_config_path = systemd_dir.joinpath(bench_info.get("bench_name") + '-node-socketio.service')
 
-	with open(bench_web_target_config_path, 'w') as f:
-		f.write(bench_web_target_config)
+	bench_web_target_config_path.write_text(bench_web_target_config)
+	bench_web_service_config_path.write_text(bench_web_service_config)
+	bench_node_socketio_config_path.write_text(bench_node_socketio_config)
 
-	with open(bench_web_service_config_path, 'w') as f:
-		f.write(bench_web_service_config)
-
-	with open(bench_node_socketio_config_path, 'w') as f:
-		f.write(bench_node_socketio_config)
 
 def setup_redis_config(bench_info, bench_path):
 	# Redis Group
@@ -155,27 +149,22 @@ def setup_redis_config(bench_info, bench_path):
 	bench_redis_queue_config = bench_redis_queue_template.render(**bench_info)
 	bench_redis_socketio_config = bench_redis_socketio_template.render(**bench_info)
 
-	bench_redis_target_config_path = os.path.join(bench_path, 'config', 'systemd' , bench_info.get("bench_name") + '-redis.target')
-	bench_redis_cache_config_path = os.path.join(bench_path, 'config', 'systemd' , bench_info.get("bench_name") + '-redis-cache.service')
-	bench_redis_queue_config_path = os.path.join(bench_path, 'config', 'systemd' , bench_info.get("bench_name") + '-redis-queue.service')
-	bench_redis_socketio_config_path = os.path.join(bench_path, 'config', 'systemd' , bench_info.get("bench_name") + '-redis-socketio.service')
+	systemd_dir = Path(bench_path, 'config', 'systemd')
+	bench_redis_target_config_path = systemd_dir.joinpath(bench_info.get("bench_name") + '-redis.target')
+	bench_redis_cache_config_path = systemd_dir.joinpath(bench_info.get("bench_name") + '-redis-cache.service')
+	bench_redis_queue_config_path = systemd_dir.joinpath(bench_info.get("bench_name") + '-redis-queue.service')
+	bench_redis_socketio_config_path = systemd_dir.joinpath(bench_info.get("bench_name") + '-redis-socketio.service')
 
-	with open(bench_redis_target_config_path, 'w') as f:
-		f.write(bench_redis_target_config)
+	bench_redis_target_config_path.write_text(bench_redis_target_config)
+	bench_redis_cache_config_path.write_text(bench_redis_cache_config)
+	bench_redis_queue_config_path.write_text(bench_redis_queue_config)
+	bench_redis_socketio_config_path.write_text(bench_redis_socketio_config)
 
-	with open(bench_redis_cache_config_path, 'w') as f:
-		f.write(bench_redis_cache_config)
-
-	with open(bench_redis_queue_config_path, 'w') as f:
-		f.write(bench_redis_queue_config)
-
-	with open(bench_redis_socketio_config_path, 'w') as f:
-		f.write(bench_redis_socketio_config)
 
 def _create_symlinks(bench_path):
-	bench_dir = os.path.abspath(bench_path)
-	etc_systemd_system = os.path.join('/', 'etc', 'systemd', 'system')
-	config_path = os.path.join(bench_dir, 'config', 'systemd')
+	bench_dir = Path(bench_path).resolve()
+	etc_systemd_system = Path('/', 'etc', 'systemd', 'system')
+	config_path = Path(bench_dir, 'config', 'systemd')
 	unit_files = get_unit_files(bench_dir)
 	for unit_file in unit_files:
 		filename = "".join(unit_file)
@@ -187,10 +176,11 @@ def _create_symlinks(bench_path):
 		))
 	exec_cmd('sudo systemctl daemon-reload')
 
+
 def _delete_symlinks(bench_path):
-	bench_dir = os.path.abspath(bench_path)
-	etc_systemd_system = os.path.join('/', 'etc', 'systemd', 'system')
-	config_path = os.path.join(bench_dir, 'config', 'systemd')
+	bench_dir = Path(bench_path).resolve()
+	etc_systemd_system = Path('/', 'etc', 'systemd', 'system')
+	config_path = Path(bench_dir, 'config', 'systemd')
 	unit_files = get_unit_files(bench_dir)
 	for unit_file in unit_files:
 		exec_cmd('sudo rm {etc_systemd_system}/{unit_file_init}'.format(
@@ -199,6 +189,7 @@ def _delete_symlinks(bench_path):
 			unit_file_init="".join(unit_file)
 		))
 	exec_cmd('sudo systemctl daemon-reload')
+
 
 def get_unit_files(bench_path):
 	bench_name = get_bench_name(bench_path)
