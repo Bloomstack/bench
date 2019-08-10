@@ -4,14 +4,15 @@ import os
 import pwd
 import subprocess
 import sys
+from pathlib import Path
 
 import click
 
 from bench.app import get_apps
 from bench.commands import bench_command
 from bench.config.common_site_config import get_config
-from bench.utils import drop_privileges, get_cmd_output, get_env_cmd, get_frappe, is_root
 from bench.exceptions import PatchError
+from bench.utils import drop_privileges, get_cmd_output, get_env_cmd, get_frappe, is_root
 
 logger = logging.getLogger('bench')
 from_command_line = False
@@ -90,25 +91,25 @@ def change_uid():
 
 def old_frappe_cli(bench_path='.'):
 	f = get_frappe(bench_path=bench_path)
-	os.chdir(os.path.join(bench_path, 'sites'))
+	os.chdir(Path(bench_path, 'sites'))
 	os.execv(f, [f] + sys.argv[2:])
 
 
 def app_cmd(bench_path='.'):
 	f = get_env_cmd('python', bench_path=bench_path)
-	os.chdir(os.path.join(bench_path, 'sites'))
+	os.chdir(Path(bench_path, 'sites'))
 	os.execv(f, [f] + ['-m', 'frappe.utils.bench_helper'] + sys.argv[1:])
 
 
 def frappe_cmd(bench_path='.'):
 	f = get_env_cmd('python', bench_path=bench_path)
-	os.chdir(os.path.join(bench_path, 'sites'))
+	os.chdir(Path(bench_path, 'sites'))
 	os.execv(f, [f] + ['-m', 'frappe.utils.bench_helper', 'frappe'] + sys.argv[1:])
 
 
 def get_frappe_commands(bench_path='.'):
 	python = get_env_cmd('python', bench_path=bench_path)
-	sites_path = os.path.join(bench_path, 'sites')
+	sites_path = Path(bench_path, 'sites')
 	if not os.path.exists(sites_path):
 		return []
 	try:
@@ -123,7 +124,7 @@ def get_frappe_commands(bench_path='.'):
 
 def get_frappe_help(bench_path='.'):
 	python = get_env_cmd('python', bench_path=bench_path)
-	sites_path = os.path.join(bench_path, 'sites')
+	sites_path = Path(bench_path, 'sites')
 	if not os.path.exists(sites_path):
 		return []
 	try:

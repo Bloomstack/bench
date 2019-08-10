@@ -51,7 +51,9 @@ def update(pull=False, patch=False, build=False, bench=False, auto=False,
 		sys.exit(1)
 
 	# check for obsolete branches
+	print('\nChecking for obsolete branches...')
 	validate_branches()
+	print('...done')
 
 	# check for major version upgrades in Frappe
 	conf = get_config(bench_path)
@@ -66,6 +68,7 @@ def update(pull=False, patch=False, build=False, bench=False, auto=False,
 	if version_upgrade or (not version_upgrade and force):
 		validate_upgrade(local_version, upstream_version, bench_path)
 
+	# handle Pillow dependency for different linux distros
 	before_update(bench_path, requirements)
 
 	conf.update({"maintenance_mode": 1, "pause_scheduler": 1})
@@ -140,8 +143,6 @@ def switch_to_branch(branch, apps, upgrade=False):
 	"Switch all apps to specified branch, or specify apps separated by space"
 	from bench.app import switch_to_branch
 	switch_to_branch(branch=branch, apps=list(apps), upgrade=upgrade)
-	print('Switched to ' + branch)
-	print('Please run `bench update --patch` to be safe from any differences in database schema')
 
 
 @click.command('switch-to-master')
@@ -149,16 +150,10 @@ def switch_to_master():
 	"Switch frappe and erpnext to master branch"
 	from bench.app import switch_to_master
 	switch_to_master(apps=['frappe', 'erpnext'])
-	print()
-	print('Switched to master')
-	print('Please run `bench update --patch` to be safe from any differences in database schema')
 
 
 @click.command('switch-to-develop')
-def switch_to_develop(upgrade=False):
+def switch_to_develop():
 	"Switch frappe and erpnext to develop branch"
 	from bench.app import switch_to_develop
 	switch_to_develop(apps=['frappe', 'erpnext'])
-	print()
-	print('Switched to develop')
-	print('Please run `bench update --patch` to be safe from any differences in database schema')

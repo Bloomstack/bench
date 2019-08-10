@@ -14,7 +14,7 @@ def prepare_staging(bench_path, app, remote='upstream'):
 	from bench.release import get_release_message
 	validate(bench_path)
 
-	repo_path = os.path.join(bench_path, 'apps', app)
+	repo_path = Path(bench_path, 'apps', app)
 	update_branches(repo_path, remote)
 	message = get_release_message(repo_path, from_branch='develop', to_branch='staging', remote=remote)
 

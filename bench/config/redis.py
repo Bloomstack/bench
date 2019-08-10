@@ -1,6 +1,7 @@
 import os
 import re
 import subprocess
+from pathlib import Path
 
 import semantic_version
 
@@ -48,19 +49,17 @@ def generate_config(bench_path):
 	)
 
 	# make pids folder
-	pid_path = os.path.join(bench_path, "config", "pids")
-	if not os.path.exists(pid_path):
-		os.makedirs(pid_path)
+	pid_path = Path(bench_path, "config", "pids")
+	pid_path.mkdir(parents=True, exist_ok=True)
 
 
 def write_redis_config(template_name, context, bench_path):
 	template = bench.env.get_template(template_name)
 
 	if "pid_path" not in context:
-		context["pid_path"] = os.path.abspath(os.path.join(bench_path, "config", "pids"))
+		context["pid_path"] = Path(bench_path, "config", "pids").resolve()
 
-	with open(os.path.join(bench_path, 'config', template_name), 'w') as f:
-		f.write(template.render(**context))
+	Path(bench_path, 'config', template_name).write_text(template.render(**context))
 
 
 def get_redis_version():

@@ -10,9 +10,9 @@ import bench.app
 import bench.cli
 import bench.config.common_site_config
 import bench.utils
-from bench.release import get_bumped_version
 from bench.config.common_site_config import DEFAULT_CONFIG
-
+from bench.release import get_bumped_version
+from bench.utils import get_env_cmd
 
 bench.cli.from_command_line = True
 
@@ -211,7 +211,7 @@ class TestBenchInit(unittest.TestCase):
 
 	def assert_virtual_env(self, bench_name):
 		bench_path = os.path.abspath(bench_name)
-		python = os.path.join(bench_path, "env", "bin", "python")
+		python = get_env_cmd(bench_path, "python")
 		python_path = bench.utils.get_cmd_output('{python} -c "import os; print os.path.dirname(os.__file__)"'.format(python=python))
 
 		# part of bench's virtualenv
