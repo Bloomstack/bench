@@ -264,7 +264,10 @@ wait for them to be merged in the core.
 			repo.git.pull(remote, branch)
 
 		# display diff from the pulled commits
-		print(repo.git.diff("--stat", f"HEAD~{commit_count}"))
+		print("\n" + repo.git.diff("--stat", f"HEAD~{commit_count}"))
+
+		# re-install app
+		install_app(app, bench_path)
 
 		# remove compiled Python files from the app
 		[path.unlink() for path in repo_dir.rglob('*.py[co]')]
@@ -388,7 +391,7 @@ def get_repo_dir(app, bench_path='.'):
 
 
 def switch_branch(branch, apps=None, bench_path='.', upgrade=False, check_upgrade=True):
-	from bench.utils import update_requirements, update_node_packages, backup_all_sites, patch_sites, build_assets, pre_upgrade, post_upgrade
+	from bench.utils import update_requirements, update_node_packages, backup_all_sites, patch_sites, build_assets, post_upgrade, reinstall_apps
 	from . import utils
 	apps_dir = Path(bench_path, 'apps')
 	version_upgrade = None
@@ -436,14 +439,11 @@ def switch_branch(branch, apps=None, bench_path='.', upgrade=False, check_upgrad
 	print('\nPlease run `bench update --patch` to be safe from any differences in database schema')
 
 	if version_upgrade and upgrade:
+		import importlib
 		update_requirements()
 		update_node_packages()
-		pre_upgrade(local_version, upstream_version)
-		if sys.version_info >= (3, 4):
-			import importlib
-			importlib.reload(utils)
-		else:
-			reload(utils)
+		reinstall_apps()
+		importlib.reload(utils)
 		backup_all_sites()
 		patch_sites()
 		build_assets()

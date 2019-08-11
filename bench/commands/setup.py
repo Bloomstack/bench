@@ -162,9 +162,12 @@ def setup_requirements(node=False, python=False):
 	if not python:
 		setup_node_requirements()
 
+
 def setup_python_requirements():
-	from bench.utils import update_requirements
+	from bench.utils import update_requirements, reinstall_apps
 	update_requirements()
+	reinstall_apps()
+
 
 def setup_node_requirements():
 	from bench.utils import update_node_packages

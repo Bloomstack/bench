@@ -487,16 +487,17 @@ def update_requirements(bench_path='.'):
 		install_requirements(pip, bench_req_file)
 	print('...done')
 
+
+def reinstall_apps(bench_path='.'):
+	print('\nRe-installing apps...')
 	from bench.app import get_apps, install_app
 
-	print('\nRe-installing apps...')
 	for app in get_apps():
 		install_app(app, bench_path)
 	print('...done')
 
 
 def update_node_packages(bench_path='.'):
-	print('\nUpdating node packages...')
 	from bench.app import get_develop_version
 	from distutils.version import LooseVersion
 	v = LooseVersion(get_develop_version('frappe', bench_path))
@@ -504,8 +505,10 @@ def update_node_packages(bench_path='.'):
 	# After rollup was merged, frappe_version = 10.1
 	# if develop_verion is 11 and up, only then install yarn
 	if v < LooseVersion('11.x.x-develop'):
+		print('\nUpdating npm packages...')
 		update_npm_packages(bench_path)
 	else:
+		print('\nUpdating yarn packages...')
 		update_yarn_packages(bench_path)
 	print('...done')
 
@@ -696,21 +699,6 @@ def validate_upgrade(from_ver, to_ver, bench_path='.'):
 			raise Exception("Please install nodejs and npm")
 
 
-def pre_upgrade(from_ver, to_ver, bench_path='.'):
-	pip = os.path.join(bench_path, 'env', 'bin', 'pip')
-
-	if from_ver <= 4 and to_ver >= 5:
-		from bench.migrate_to_v5 import remove_shopping_cart
-		apps = ('frappe', 'erpnext')
-		remove_shopping_cart(bench_path=bench_path)
-
-		for app in apps:
-			cwd = os.path.abspath(os.path.join(bench_path, 'apps', app))
-			if os.path.exists(cwd):
-				exec_cmd("git clean -dxf", cwd=cwd)
-				exec_cmd("{pip} install --upgrade -e {app}".format(pip=pip, app=cwd))
-
-
 def post_upgrade(from_ver, to_ver, bench_path='.'):
 	from bench.config.common_site_config import get_config
 	from bench.config import redis
@@ -718,18 +706,12 @@ def post_upgrade(from_ver, to_ver, bench_path='.'):
 	from bench.config.nginx import make_nginx_conf
 	conf = get_config(bench_path=bench_path)
 	print("-"*80)
-	print("Your bench was upgraded to version {0}".format(to_ver))
+	print(f"Your apps were upgraded from {from_ver} to {to_ver}")
 
 	if conf.get('restart_supervisor_on_update'):
 		redis.generate_config(bench_path=bench_path)
 		generate_supervisor_config(bench_path=bench_path)
 		make_nginx_conf(bench_path=bench_path)
-
-		if from_ver == 4 and to_ver == 5:
-			setup_backups(bench_path=bench_path)
-
-		if from_ver <= 5 and to_ver == 6:
-			setup_socketio(bench_path=bench_path)
 
 		print("As you have setup your bench for production, you will have to reload configuration for nginx and supervisor")
 		print("To complete the migration, please run the following commands")
@@ -830,15 +812,14 @@ def get_output(*cmd):
 
 
 def before_update(bench_path, requirements):
-	print("\nUpdating Pillow...")
 	validate_pillow_dependencies(bench_path, requirements)
-	print("...done")
 
 
 def validate_pillow_dependencies(bench_path, requirements):
 	if not requirements:
 		return
 
+	print("\nValidate Pillow dependencies...")
 	try:
 		pip = Path(bench_path, 'env', 'bin', 'pip')
 		exec_cmd("{pip} install Pillow".format(pip=pip))
@@ -856,6 +837,7 @@ def validate_pillow_dependencies(bench_path, requirements):
 			else:
 				print("sudo apt-get install -y libtiff5-dev libjpeg8-dev zlib1g-dev libfreetype6-dev liblcms2-dev libwebp-dev tcl8.6-dev tk8.6-dev python-tk")
 			raise
+	print("...done")
 
 
 def get_bench_name(bench_path):
