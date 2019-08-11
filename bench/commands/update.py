@@ -7,7 +7,7 @@ from bench import patches
 from bench.app import is_version_upgrade, pull_all_apps, validate_branches
 from bench.config.common_site_config import get_config, update_config
 from bench.utils import (backup_all_sites, before_update, build_assets,
-						patch_sites, post_upgrade, pre_upgrade,
+						patch_sites, post_upgrade,
 						restart_supervisor_processes,
 						restart_systemd_processes, update_bench,
 						update_node_packages, update_requirements,
@@ -15,20 +15,18 @@ from bench.utils import (backup_all_sites, before_update, build_assets,
 
 
 @click.command('update')
-@click.option('--pull', is_flag=True, help="Pull changes in all the apps in bench")
-@click.option('--patch', is_flag=True, help="Run migrations for all sites in the bench")
+@click.option('--bench', is_flag=True, help="Update the bench package only")
 @click.option('--build', is_flag=True, help="Build JS and CSS artifacts for the bench")
-@click.option('--bench', is_flag=True, help="Update bench")
-@click.option('--requirements', is_flag=True, help="Update requirements")
-@click.option('--restart-supervisor', is_flag=True, help="restart supervisor processes after update")
-@click.option('--restart-systemd', is_flag=True, help="restart systemd units after update")
-@click.option('--auto', is_flag=True)
-@click.option('--no-backup', is_flag=True)
-@click.option('--force', is_flag=True)
-@click.option('--reset', is_flag=True, help="Hard resets git branch's to their new states overriding any changes and overriding rebase on pull")
-def update(pull=False, patch=False, build=False, bench=False, auto=False,
-	restart_supervisor=False, restart_systemd=False, requirements=False,
-	no_backup=False, force=False, reset=False):
+@click.option('--force', is_flag=True, help="Force upgrade of Frappe and ERPNext, if applicable")
+@click.option('--no-backup', is_flag=True, help="Skip site database backups")
+@click.option('--patch', is_flag=True, help="Run migrations for all sites on the bench")
+@click.option('--pull', is_flag=True, help="Pull changes for all apps on the bench")
+@click.option('--requirements', is_flag=True, help="Update python and node requirements")
+@click.option('--reset', is_flag=True, help="Reset all changes in apps and override rebase on pull")
+@click.option('--restart-supervisor', is_flag=True, help="Restart supervisor processes after update")
+@click.option('--restart-systemd', is_flag=True, help="Restart systemd units after update")
+def update(auto=False, bench=False, build=False, force=False, no_backup=False, patch=False,
+	pull=False, requirements=False, reset=False, restart_supervisor=False, restart_systemd=False):
 	"Update bench"
 
 	if not any([pull, patch, build, bench, requirements]):
@@ -89,36 +87,34 @@ def update(pull=False, patch=False, build=False, bench=False, auto=False,
 		update_node_packages(bench_path)
 
 	if version_upgrade or (not version_upgrade and force):
-		pre_upgrade(local_version, upstream_version, bench_path)
 		import bench.utils
 		import bench.app
+		import importlib
 		print('Reloading bench...')
-		if sys.version_info >= (3, 4):
-			import importlib
-			importlib.reload(bench.utils)
-			importlib.reload(bench.app)
-		else:
-			reload(bench.utils)
-			reload(bench.app)
+		importlib.reload(bench.utils)
+		importlib.reload(bench.app)
 
 	if patch:
 		print('\nPatching sites...')
-		patch_sites(bench_path=bench_path)
+		patch_sites(bench_path)
 		print('...done')
+
 	if build:
 		print('\nBuilding assets...')
-		build_assets(bench_path=bench_path)
+		build_assets(bench_path)
 		print('...done')
 
 	if version_upgrade or (not version_upgrade and force):
 		post_upgrade(local_version, upstream_version, bench_path)
+
 	if restart_supervisor or conf.get('restart_supervisor_on_update'):
 		restart_supervisor_processes(bench_path=bench_path)
+
 	if restart_systemd or conf.get('restart_systemd_on_update'):
 		restart_systemd_processes(bench_path=bench_path)
 
 	conf.update({"maintenance_mode": 0, "pause_scheduler": 0})
-	update_config(conf, bench_path=bench_path)
+	update_config(conf, bench_path)
 
 	print("_" * 80)
 	print("Bench: Deployment tool for Frappe and ERPNext (https://erpnext.org).")
