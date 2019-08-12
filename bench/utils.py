@@ -856,8 +856,8 @@ def set_git_remote_url(git_url, bench_path='.'):
 		print("No app named {0}".format(app))
 		sys.exit(1)
 
-	app_dir = bench.app.get_repo_dir(app, bench_path=bench_path)
-	if os.path.exists(os.path.join(app_dir, '.git')):
+	app_dir = bench.app.get_repo_dir(app, bench_path)
+	if Path(app_dir, '.git').exists():
 		exec_cmd("git remote set-url upstream {}".format(git_url), cwd=app_dir)
 
 

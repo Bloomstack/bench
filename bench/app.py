@@ -381,13 +381,7 @@ def get_upstream_url(app, bench_path='.'):
 
 
 def get_repo_dir(app, bench_path='.'):
-	repo_dir = Path(bench_path, 'apps', app)
-
-	if not repo_dir.exists():
-		print(f"\nThe `{app}` app does not exist")
-		sys.exit(1)
-
-	return repo_dir
+	return Path(bench_path, 'apps', app)
 
 
 def switch_branch(branch, apps=None, bench_path='.', upgrade=False, check_upgrade=True):
