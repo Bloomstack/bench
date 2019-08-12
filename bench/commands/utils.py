@@ -198,4 +198,4 @@ def disable_production():
 def bench_src():
 	"""Prints bench source folder path, which can be used as: cd `bench src` """
 	import bench
-	print(os.path.dirname(bench.__path__[0]))
+	print(Path(bench.__path__[0]).parent)

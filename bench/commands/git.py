@@ -32,7 +32,12 @@ def remote_urls():
 
 	for app in get_apps():
 		repo_dir = get_repo_dir(app)
-		repo = git.Repo(repo_dir)
+
+		try:
+			repo = git.Repo(repo_dir)
+		except git.exc.InvalidGitRepositoryError as e:
+			continue
+
 		remotes = [remote.name for remote in repo.remotes]
 
 		print("{app}:".format(app=app))
