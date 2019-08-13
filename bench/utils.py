@@ -294,8 +294,8 @@ def get_commits_to_pull(app_dir, remote="upstream", branch="master"):
 	except git.exc.InvalidGitRepositoryError as e:
 		return 0
 
-	current_branch = bench_repo.active_branch
-	commits_to_pull = bench_repo.iter_commits("{current_branch}..{remote}/{branch}".format(current_branch=current_branch, remote=remote, branch=branch))
+	current_branch = bench_repo.active_branch.name
+	commits_to_pull = bench_repo.iter_commits(f"{current_branch}..{remote}/{branch}")
 	commit_count = sum([1 for commit in commits_to_pull])
 
 	return commit_count

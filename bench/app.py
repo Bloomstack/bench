@@ -225,7 +225,7 @@ def pull_all_apps(bench_path='.', reset=False):
 			continue
 
 		commit_count = get_commits_to_pull(repo_dir, remote, branch)
-		if commit_count == 0:
+		if not commit_count and not reset:
 			print(f"...no updates for '{app}'")
 			continue
 
@@ -256,7 +256,7 @@ wait for them to be merged in the core.
 		print(f"...{app}...")
 
 		if reset:
-			repo.git.fetch("-all")
+			repo.git.fetch("--all")
 			repo.git.reset("--hard", f"{remote}/{branch}")
 		elif rebase:
 			repo.git.pull(rebase, remote, branch)
@@ -392,17 +392,13 @@ def switch_branch(branch, apps=None, bench_path='.', upgrade=False, check_upgrad
 
 	if not apps:
 		apps = [app.name for app in apps_dir.iterdir() if app.is_dir()]
-		if branch == "v4.x.x":
-			apps.append('shopping_cart')
 
 	for app in apps:
 		app_dir = Path(apps_dir, app)
 		if app_dir.exists():
 			try:
 				print(f"\nSwitching for {app}...")
-				repo = git.Repo(app_dir)
-
-				if get_current_branch(app, bench_path) != branch:
+				if get_current_branch(app, bench_path) == branch:
 					print(f"...'{app}' is already on '{branch}'")
 					continue
 
@@ -488,6 +484,6 @@ def validate_branches():
 			print(f"""
 Your '{app}' app is on the 'master' branch, which has been deprecated.
 
-Please refer to https://github.com/frappe/erpnext/wiki/Pull-Request-Checklist for the new branch names.
+Please refer to https://github.com/frappe/erpnext/wiki/Pull-Request-Checklist for the current active branches.
 			""")
 			sys.exit(1)
