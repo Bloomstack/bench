@@ -255,8 +255,8 @@ wait for them to be merged in the core.
 
 		print(f"...{app}...")
 
+		repo.git.fetch(remote, branch)
 		if reset:
-			repo.git.fetch("--all")
 			repo.git.reset("--hard", f"{remote}/{branch}")
 		elif rebase:
 			repo.git.pull(rebase, remote, branch)
@@ -396,19 +396,24 @@ def switch_branch(branch, apps=None, bench_path='.', upgrade=False, check_upgrad
 	for app in apps:
 		app_dir = Path(apps_dir, app)
 		if app_dir.exists():
+			print(f"\nSwitching for {app}...")
+
 			try:
-				print(f"\nSwitching for {app}...")
 				if get_current_branch(app, bench_path) == branch:
 					print(f"...'{app}' is already on '{branch}'")
 					continue
+			except git.exc.InvalidGitRepositoryError:
+				print(f"...'{app}' is not a valid app")
+				continue
 
-				if check_upgrade:
-					version_upgrade, local_version, upstream_version = is_version_upgrade(app, bench_path, branch)
-					if version_upgrade and not upgrade:
-						raise MajorVersionUpgradeException(
-							f"\nSwitching to {branch} will cause upgrade from {local_version} to {upstream_version}. Pass --upgrade to confirm",
-							local_version, upstream_version)
+			if check_upgrade:
+				version_upgrade, local_version, upstream_version = is_version_upgrade(app, bench_path, branch)
+				if version_upgrade and not upgrade:
+					raise MajorVersionUpgradeException(
+						f"\nSwitching to {branch} will cause upgrade from {local_version} to {upstream_version}. Pass --upgrade to confirm",
+						local_version, upstream_version)
 
+			try:
 				unshallow = "--unshallow" if Path(app_dir, ".git", "shallow").exists() else ""
 				exec_cmd("git config --unset-all remote.upstream.fetch", cwd=app_dir)
 				exec_cmd("git config --add remote.upstream.fetch '+refs/heads/*:refs/remotes/upstream/*'", cwd=app_dir)
@@ -417,14 +422,11 @@ def switch_branch(branch, apps=None, bench_path='.', upgrade=False, check_upgrad
 				exec_cmd(f"git merge upstream/{branch}", cwd=app_dir)
 				print(f"...switched to '{branch}'")
 			except CommandFailedError:
-				print(f"Error switching to branch '{branch}' for '{app}'")
+				print(f"...error switching to branch '{branch}' for '{app}'")
 			except InvalidRemoteException:
-				print(f"Remote does not exist for app '{app}'")
+				print(f"...remote does not exist for app '{app}'")
 			except InvalidBranchException:
-				print(f"Branch '{branch}' does not exist in upstream for '{app}'")
-			except git.exc.InvalidGitRepositoryError:
-				print(f"'{app}' is not a valid Frappe app")
-				continue
+				print(f"...branch '{branch}' does not exist in upstream for '{app}'")
 
 	print('\nPlease run `bench update --patch` to be safe from any differences in database schema')
 

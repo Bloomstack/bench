@@ -522,11 +522,10 @@ def update_yarn_packages(bench_path='.'):
 		return
 
 	for app in apps_dir.iterdir():
-		app_path = Path(apps_dir, app)
-		app_package_json = app_path.joinpath('package.json')
+		app_package_json = app.joinpath('package.json')
 		if app_package_json.exists():
-			print('...{} packages...'.format(app))
-			exec_cmd('yarn install', cwd=app_path)
+			print('...{} packages...'.format(app.name))
+			exec_cmd('yarn install', cwd=app)
 
 
 def update_npm_packages(bench_path='.'):
