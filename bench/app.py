@@ -204,7 +204,8 @@ def remove_app(app, bench_path='.'):
 
 
 def pull_all_apps(bench_path='.', reset=False):
-	'''Check all apps if there no local changes, pull'''
+	"""Check all apps for changes and update"""
+
 	rebase = '--rebase' if get_config(bench_path).get('rebase_on_pull') else ''
 
 	# check for local changes
@@ -444,14 +445,6 @@ def switch_branch(branch, apps=None, bench_path='.', upgrade=False, check_upgrad
 
 def switch_to_branch(branch=None, apps=None, bench_path='.', upgrade=False):
 	switch_branch(branch, apps, bench_path, upgrade)
-
-
-def switch_to_master(apps=None, bench_path='.', upgrade=True):
-	switch_branch('master', apps, bench_path, upgrade)
-
-
-def switch_to_develop(apps=None, bench_path='.', upgrade=True):
-	switch_branch('develop', apps, bench_path, upgrade)
 
 
 def get_version_from_string(contents, field='__version__'):

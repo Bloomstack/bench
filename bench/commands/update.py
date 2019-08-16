@@ -1,17 +1,18 @@
+import importlib
 import os
 import sys
 
 import click
 
+import bench.app
+import bench.utils
 from bench import patches
-from bench.app import is_version_upgrade, pull_all_apps, validate_branches
+from bench.app import is_version_upgrade, pull_all_apps, switch_to_branch, validate_branches
 from bench.config.common_site_config import get_config, update_config
 from bench.utils import (backup_all_sites, before_update, build_assets,
-						patch_sites, post_upgrade,
-						restart_supervisor_processes,
-						restart_systemd_processes, update_bench,
-						update_node_packages, update_requirements,
-						validate_upgrade)
+	patch_sites, post_upgrade, restart_supervisor_processes,
+	restart_systemd_processes, update_bench, update_node_packages,
+	update_requirements, validate_upgrade)
 
 
 @click.command('update')
@@ -27,7 +28,7 @@ from bench.utils import (backup_all_sites, before_update, build_assets,
 @click.option('--restart-systemd', is_flag=True, help="Restart systemd units after update")
 def update(auto=False, bench=False, build=False, force=False, no_backup=False, patch=False,
 	pull=False, requirements=False, reset=False, restart_supervisor=False, restart_systemd=False):
-	"Update bench"
+	"Update bench, perform a backup, pull app changes and rebuild site"
 
 	if not any([pull, patch, build, bench, requirements]):
 		pull = patch = build = bench = requirements = True
@@ -87,12 +88,10 @@ def update(auto=False, bench=False, build=False, force=False, no_backup=False, p
 		update_node_packages(bench_path)
 
 	if version_upgrade or (not version_upgrade and force):
-		import bench.utils
-		import bench.app
-		import importlib
 		print('Reloading bench...')
 		importlib.reload(bench.utils)
 		importlib.reload(bench.app)
+		print('...done')
 
 	if patch:
 		print('\nPatching sites...')
@@ -123,8 +122,10 @@ def update(auto=False, bench=False, build=False, force=False, no_backup=False, p
 
 
 @click.command('retry-upgrade')
-@click.option('--version', default=5)
+@click.option('--version', default=10)
 def retry_upgrade(version):
+	"Retry major version upgrades for all apps"
+
 	pull_all_apps()
 	patch_sites()
 	build_assets()
@@ -134,22 +135,8 @@ def retry_upgrade(version):
 @click.command('switch-to-branch')
 @click.argument('branch')
 @click.argument('apps', nargs=-1)
-@click.option('--upgrade', is_flag=True)
+@click.option('--upgrade', is_flag=True, help="Perform a major upgrade after switching branches")
 def switch_to_branch(branch, apps, upgrade=False):
-	"Switch all apps to specified branch, or specify apps separated by space"
-	from bench.app import switch_to_branch
+	"Switch all apps to the specified branch, or specify apps separated by space"
+
 	switch_to_branch(branch=branch, apps=list(apps), upgrade=upgrade)
-
-
-@click.command('switch-to-master')
-def switch_to_master():
-	"Switch frappe and erpnext to master branch"
-	from bench.app import switch_to_master
-	switch_to_master(apps=['frappe', 'erpnext'])
-
-
-@click.command('switch-to-develop')
-def switch_to_develop():
-	"Switch frappe and erpnext to develop branch"
-	from bench.app import switch_to_develop
-	switch_to_develop(apps=['frappe', 'erpnext'])
