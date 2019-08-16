@@ -224,14 +224,15 @@ def pull_all_apps(bench_path='.', reset=False):
 			print(f"Skipping pull for app '{app}', since remote doesn't exist, and adding it to excluded apps")
 			continue
 
-		commit_count = get_commits_to_pull(repo_dir, remote, branch)
-		if not commit_count and not reset:
-			print(f"...no updates for '{app}'")
-			continue
-
 		try:
 			repo = git.Repo(repo_dir)
 		except git.exc.InvalidGitRepositoryError as e:
+			continue
+
+		repo.git.fetch(remote, branch)
+		commit_count = get_commits_to_pull(repo_dir, remote, branch)
+		if not commit_count and not reset:
+			print(f"...no updates for '{app}'")
 			continue
 
 		if not reset:
@@ -255,7 +256,6 @@ wait for them to be merged in the core.
 
 		print(f"...{app}...")
 
-		repo.git.fetch(remote, branch)
 		if reset:
 			repo.git.reset("--hard", f"{remote}/{branch}")
 		elif rebase:
