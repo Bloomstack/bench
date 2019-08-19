@@ -265,7 +265,10 @@ wait for them to be merged in the core.
 			repo.git.pull(remote, branch)
 
 		# display diff from the pulled commits
-		print("\n" + repo.git.diff("--stat", f"HEAD~{commit_count}"))
+		ENV_COLOR_UI = repo.git.config("--get", "color.ui")
+		repo.git.config("color.ui", "always")
+		print("\n" + repo.git.diff("--stat", f"HEAD~{commit_count}") + "\n")
+		repo.git.config("color.ui", ENV_COLOR_UI)
 
 		# re-install app
 		install_app(app, bench_path)
