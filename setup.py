@@ -18,13 +18,25 @@ setup(
 	description='Metadata driven, full-stack web framework',
 	author='Frappe Technologies',
 	author_email='info@frappe.io',
+	url='https://github.com/frappe/bench',
 	version=version,
 	packages=find_packages(),
 	zip_safe=False,
 	include_package_data=True,
 	install_requires=install_requires,
+	python_requires='>=3.6, <4',
+	classifiers=[
+		"Development Status :: 5 - Production/Stable",
+		"Environment :: Console",
+		"Intended Audience :: Developers",
+		"License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+		"Operating System :: MacOS",
+		"Operating System :: Unix",
+		"Programming Language :: Python :: 3.6",
+		"Topic :: Utilities"
+	],
 	entry_points='''
-		[console_scripts]
-		bench=bench.cli:cli
-	''',
+[console_scripts]
+bench=bench.cli:cli
+''',
 )
