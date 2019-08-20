@@ -91,11 +91,11 @@ def update_config_for_frappe(config, bench_path):
 
 
 def make_ports(bench_path):
-	# collect all existing ports
 	existing_ports = {}
 	benches_dir = Path(bench_path).resolve().parent
-	benches = [d for d in benches_dir.iterdir() if d.is_dir()]
+	benches = [d for d in benches_dir.iterdir() if d.is_dir() and not str(d.name).startswith('.')]
 
+	# collect all existing ports
 	for bench in benches:
 		bench_config = get_config(bench)
 		for key in DEFAULT_PORTS.keys():
