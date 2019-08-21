@@ -187,7 +187,7 @@ def remove_app(app, bench_path='.'):
 	for site in site_path.iterdir():
 		req_file = site.joinpath('site_config.json')
 		if req_file.exists():
-			out = subprocess.check_output(["bench", "--site", site, "list-apps"], cwd=bench_path).decode('utf-8')
+			out = subprocess.check_output(["bench", "--site", site.resolve(), "list-apps"], cwd=bench_path).decode('utf-8')
 			if re.search(r'\b' + app + r'\b', out):
 				print(f"Cannot remove, app is installed on site: {site}")
 				sys.exit(1)
