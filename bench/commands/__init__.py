@@ -37,8 +37,8 @@ def print_bench_version(ctx, param, value):
 
 
 @click.group()
-@click.option('--version', is_flag=True, callback=print_bench_version)
-def bench_command(bench_path='.'):
+@click.option('--version', is_flag=True, help="Print bench package version", callback=print_bench_version)
+def bench_command(bench_path='.', version=False):
 	"Bench manager for Frappe"
 
 	bench.set_frappe_version(bench_path=bench_path)
