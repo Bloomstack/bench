@@ -2,7 +2,6 @@ from __future__ import print_function
 
 import json
 import logging
-import os
 import re
 import shutil
 import subprocess
@@ -17,10 +16,8 @@ import bench
 from bench.config.common_site_config import get_config
 from bench.exceptions import InvalidBranchException, InvalidRemoteException, MajorVersionUpgradeException
 from bench.utils import (CommandFailedError, build_assets,
-						check_git_for_shallow_clone, exec_cmd, get_cmd_output,
-						get_commits_to_pull, get_env_cmd, get_frappe,
-						restart_supervisor_processes,
-						restart_systemd_processes, run_frappe_cmd)
+	check_git_for_shallow_clone, exec_cmd, get_commits_to_pull, get_env_cmd,
+	restart_supervisor_processes, restart_systemd_processes, run_frappe_cmd)
 
 logging.basicConfig(level="DEBUG")
 logger = logging.getLogger(__name__)
