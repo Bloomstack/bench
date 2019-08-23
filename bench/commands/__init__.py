@@ -1,5 +1,4 @@
 import logging
-import shutil
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse
@@ -63,7 +62,7 @@ def migrate_env(version, no_backup=False):
 		return
 	virtualenv = which('virtualenv')
 	if not virtualenv:
-		log.error('Invalid virtualenv version...')
+		log.error('Please install `virtualenv` by running `bench setup requirements`, and try again...')
 		return
 	pvenv = path.joinpath('env')
 
@@ -82,25 +81,18 @@ def migrate_env(version, no_backup=False):
 
 	try:
 		if not no_backup:
-			parch = Path(path, 'archived_envs')
-			parch.mkdir(parents=True, exist_ok=True)
-
-			# Simply moving. Thanks, Ameya.
-			# I'm keen to zip.
-			source = path.joinpath('env')
-			target = parch
+			archive = path.joinpath('archived_envs')
+			archive.mkdir(parents=True, exist_ok=True)
 
 			log.debug('Backing up Virtual Environment')
-			stamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-			dest = path.joinpath(str(stamp))
+			timestamp = datetime.now().strftime('%Y_%m_%d_%H%M%S')
 
 			# WARNING: This is an archive, you might have to use virtualenv --relocate
 			# That's because virtualenv creates symlinks with shebangs pointing to executables.
 			# shebangs, shebangs - ricky martin.
-
-			# ...and shutil.copytree is a f*cking mess.
-			source.rename(dest)
-			shutil.move(str(dest), str(target))
+			source_dir = pvenv
+			dest_dir = archive.joinpath(str(timestamp))
+			source_dir.replace(dest_dir)
 
 		log.debug(f"Setting up a New Virtual {python} Environment")
 		exec_cmd(f"{virtualenv} --python {python} {pvenv}", cwd=path)
