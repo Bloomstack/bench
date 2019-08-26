@@ -64,7 +64,7 @@ def init(path, apps_path=None, no_procfile=False, no_backups=False,
 
 	if osp.exists(path):
 		if not ignore_exist:
-			raise ValueError('Bench Instance {path} already exists.'.format(path=path))
+			raise ValueError(f"Bench instance '{path}' already exists.")
 	else:
 		os.makedirs(path)
 
@@ -117,12 +117,12 @@ def copy_patches_txt(bench_path):
 
 def clone_apps_from(bench_path, clone_from, update_app=True):
 	from bench.app import install_app
-	print('Copying apps from {0}...'.format(clone_from))
+	print(f"\nCopying apps from {clone_from}...")
 	subprocess.check_output(['cp', '-R', os.path.join(clone_from, 'apps'), bench_path])
 
 	node_modules_path = os.path.join(clone_from, 'node_modules')
 	if os.path.exists(node_modules_path):
-		print('Copying node_modules from {0}...'.format(clone_from))
+		print(f"\nCopying node_modules from {clone_from}...")
 		subprocess.check_output(['cp', '-R', node_modules_path, bench_path])
 
 	def setup_app(app):
@@ -138,7 +138,7 @@ def clone_apps_from(bench_path, clone_from, update_app=True):
 				remote = 'upstream'
 			else:
 				remote = remotes[0]
-			print('Cleaning up {0}'.format(app))
+			print(f"\nCleaning up {app}...")
 			branch = subprocess.check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], cwd=app_path).strip()
 			subprocess.check_output(['git', 'reset', '--hard'], cwd=app_path)
 			subprocess.check_output(['git', 'pull', '--rebase', remote, branch], cwd=app_path)
@@ -180,9 +180,7 @@ def which(executable, raise_err=False):
 	exec_ = find_executable(executable)
 
 	if not exec_ and raise_err:
-		raise ValueError('{executable} not found.'.format(
-			executable=executable
-		))
+		raise ValueError(f"{executable} not found.")
 
 	return exec_
 
@@ -247,8 +245,10 @@ def setup_backups(bench_path='.'):
 	bench_dir = get_bench_dir(bench_path)
 	backup_command = f"cd {bench_dir} && {sys.argv[0]} --site all backup"
 
-	add_to_crontab('0 */6 * * *  {backup_command} >> {logfile} 2>&1'.format(backup_command=backup_command,
-		logfile=Path(bench_dir, 'logs', 'backup.log')))
+	add_to_crontab('0 */6 * * *  {backup_command} >> {logfile} 2>&1'.format(
+		backup_command=backup_command,
+		logfile=Path(bench_dir, 'logs', 'backup.log')
+	))
 
 
 def add_to_crontab(line):
@@ -443,36 +443,31 @@ def restart_supervisor_processes(bench_path='.', web_workers=False):
 		supervisor_status = subprocess.check_output(['sudo', 'supervisorctl', 'status'], cwd=bench_path)
 		supervisor_status = safe_decode(supervisor_status)
 
-		if web_workers and '{bench_name}-web:'.format(bench_name=bench_name) in supervisor_status:
-			group = '{bench_name}-web:	'.format(bench_name=bench_name)
-
-		elif '{bench_name}-workers:'.format(bench_name=bench_name) in supervisor_status:
-			group = '{bench_name}-workers: {bench_name}-web:'.format(bench_name=bench_name)
-
+		if web_workers and f"{bench_name}-web:" in supervisor_status:
+			group = f"{bench_name}-web:	"
+		elif f"{bench_name}-workers:" in supervisor_status:
+			group = f"{bench_name}-workers: {bench_name}-web:"
 		# backward compatibility
-		elif '{bench_name}-processes:'.format(bench_name=bench_name) in supervisor_status:
-			group = '{bench_name}-processes:'.format(bench_name=bench_name)
-
+		elif f"{bench_name}-processes:" in supervisor_status:
+			group = f"{bench_name}-processes:"
 		# backward compatibility
 		else:
 			group = 'frappe:'
 
-		exec_cmd('sudo supervisorctl restart {group}'.format(group=group), cwd=bench_path)
+		exec_cmd(f"sudo supervisorctl restart {group}", cwd=bench_path)
 
 
 def restart_systemd_processes(bench_path='.', web_workers=False):
-	from bench.config.common_site_config import get_config
-	conf = get_config(bench_path=bench_path)
 	bench_name = get_bench_name(bench_path)
-	exec_cmd('sudo systemctl stop -- $(systemctl show -p Requires {bench_name}.target | cut -d= -f2)'.format(bench_name=bench_name))
-	exec_cmd('sudo systemctl start -- $(systemctl show -p Requires {bench_name}.target | cut -d= -f2)'.format(bench_name=bench_name))
+	exec_cmd(f"sudo systemctl stop -- $(systemctl show -p Requires {bench_name}.target | cut -d= -f2)")
+	exec_cmd(f"sudo systemctl start -- $(systemctl show -p Requires {bench_name}.target | cut -d= -f2)")
 
 
 def set_default_site(site, bench_path='.'):
-	if not site in get_sites(bench_path=bench_path):
+	if not site in get_sites(bench_path):
 		raise Exception("Site not in bench")
-	exec_cmd("{frappe} --use {site}".format(frappe=get_frappe(bench_path=bench_path), site=site),
-		cwd=os.path.join(bench_path, 'sites'))
+
+	exec_cmd(f"{get_frappe(bench_path)} --use {site}", cwd=os.path.join(bench_path, 'sites'))
 
 
 def update_requirements(bench_path='.'):
@@ -480,7 +475,7 @@ def update_requirements(bench_path='.'):
 	pip = get_env_cmd('pip', bench_path)
 
 	# Update pip
-	# exec_cmd("{pip} install --upgrade pip".format(pip=pip))
+	exec_cmd(f"{pip} install --upgrade pip")
 
 	# Update bench requirements
 	bench_req_file = Path(bench.__path__[0]).with_name('requirements.txt')
@@ -525,7 +520,7 @@ def update_yarn_packages(bench_path='.'):
 	for app in apps_dir.iterdir():
 		app_package_json = app.joinpath('package.json')
 		if app_package_json.exists():
-			print('...{} packages...'.format(app.name))
+			print(f"...{app.name} packages...")
 			exec_cmd('yarn install', cwd=app)
 
 
@@ -561,7 +556,7 @@ def update_npm_packages(bench_path='.'):
 
 
 def install_requirements(pip, req_file):
-	exec_cmd("{pip} install -q -r {req_file}".format(pip=pip, req_file=req_file))
+	exec_cmd(f"{pip} install -q -r {req_file}")
 
 
 def backup_site(site, bench_path='.'):
@@ -742,7 +737,7 @@ def get_langs():
 def update_translations(app, lang):
 	translations_dir = os.path.join('apps', app, app, 'translations')
 	csv_file = os.path.join(translations_dir, lang + '.csv')
-	url = "https://translate.erpnext.com/files/{}-{}.csv".format(app, lang)
+	url = f"https://translate.erpnext.com/files/{app}-{lang}.csv"
 	r = requests.get(url, stream=True)
 	r.raise_for_status()
 
@@ -754,14 +749,6 @@ def update_translations(app, lang):
 				f.flush()
 
 	print('downloaded for', app, lang)
-
-
-def download_chart_of_accounts():
-	charts_dir = os.path.join('apps', "erpnext", "erpnext", 'accounts', 'chart_of_accounts', "submitted")
-	csv_file = os.path.join(translations_dir, lang + '.csv')
-	url = "https://translate.erpnext.com/files/{}-{}.csv".format(app, lang)
-	r = requests.get(url, stream=True)
-	r.raise_for_status()
 
 
 def print_output(p):
@@ -810,7 +797,7 @@ def validate_pillow_dependencies(bench_path, requirements):
 	print("\nValidate Pillow dependencies...")
 	try:
 		pip = Path(bench_path, 'env', 'bin', 'pip')
-		exec_cmd("{pip} install Pillow".format(pip=pip))
+		exec_cmd(f"{pip} install Pillow")
 	except CommandFailedError:
 		distname, version, id = platform.linux_distribution()
 		distro_name = distname.lower()
@@ -852,12 +839,12 @@ def set_git_remote_url(git_url, bench_path='.'):
 	app = git_url.rsplit('/', 1)[1].rsplit('.', 1)[0]
 
 	if app not in bench.app.get_apps(bench_path):
-		print("No app named {0}".format(app))
+		print(f"No app named {app}")
 		sys.exit(1)
 
 	app_dir = bench.app.get_repo_dir(app, bench_path)
 	if Path(app_dir, '.git').exists():
-		exec_cmd("git remote set-url upstream {}".format(git_url), cwd=app_dir)
+		exec_cmd(f"git remote set-url upstream {git_url}", cwd=app_dir)
 
 
 def run_playbook(playbook_name, extra_vars=None, tag=None):
