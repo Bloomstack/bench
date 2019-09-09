@@ -187,10 +187,10 @@ def which(executable, raise_err=False):
 
 def setup_env(bench_path='.', python='python3'):
 	python = which(python, raise_err=True)
-	pip = Path('env', 'bin', 'pip')
+	pip = get_env_cmd('pip', bench_path)
 
-	exec_cmd(f'virtualenv -q env -p {python}', cwd=bench_path)
-	# exec_cmd(f'{pip} -q install --upgrade pip', cwd=bench_path)
+	exec_cmd(f'{python} -m venv env', cwd=bench_path)
+	exec_cmd(f'{pip} -q install --upgrade pip', cwd=bench_path)
 	exec_cmd(f'{pip} -q install wheel', cwd=bench_path)
 	exec_cmd(f'{pip} -q install six', cwd=bench_path)
 	exec_cmd(f'{pip} -q install -e git+https://github.com/frappe/python-pdfkit.git#egg=pdfkit', cwd=bench_path)
@@ -796,7 +796,7 @@ def validate_pillow_dependencies(bench_path, requirements):
 
 	print("\nValidate Pillow dependencies...")
 	try:
-		pip = Path(bench_path, 'env', 'bin', 'pip')
+		pip = get_env_cmd('pip', bench_path)
 		exec_cmd(f"{pip} install Pillow")
 	except CommandFailedError:
 		distname, version, id = platform.linux_distribution()

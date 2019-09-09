@@ -1,12 +1,21 @@
 # wget setup_frappe.py | python3
-import os, sys, subprocess, getpass, json, multiprocessing, shutil, platform
+import getpass
+import json
+import multiprocessing
+import os
+import platform
+import shutil
+import subprocess
+import sys
 from distutils.spawn import find_executable
 
 tmp_bench_repo = '/tmp/.bench'
 
+
 def install_bench(args):
 	check_distribution_compatibility()
 	check_brew_installed()
+
 	# pre-requisites for bench repo cloning
 	install_package('curl')
 	install_package('wget')
@@ -33,40 +42,6 @@ def install_bench(args):
 		print('Could not install pre-requisites. Please check for errors or install them manually.')
 		return
 
-	# secure pip installation
-	if find_executable('pip'):
-		run_os_command({
-			'pip': 'sudo pip install --upgrade setuptools cryptography pip'
-		})
-
-	else:
-		if not os.path.exists("get-pip.py"):
-			run_os_command({
-				'wget': 'wget https://bootstrap.pypa.io/get-pip.py'
-			})
-
-		success = run_os_command({
-			'python3': 'sudo python3 get-pip.py --force-reinstall'
-		})
-
-		if success:
-			dist_name, dist_version = get_distribution_info()
-			if dist_name == 'centos':
-				run_os_command({
-					'pip': 'sudo pip install --upgrade --ignore-installed requests'
-				})
-			else:
-				run_os_command({
-					'pip': 'sudo pip install --upgrade requests'
-				})
-
-	success = run_os_command({
-		'pip': "sudo pip install --upgrade setuptools cryptography ansible pip"
-	})
-
-	if not success:
-		could_not_install('Ansible')
-
 	# clone bench repo
 	if not args.run_travis:
 		clone_bench_repo(args)
@@ -86,7 +61,7 @@ def install_bench(args):
 
 	# Python executable
 	dist_name, dist_version = get_distribution_info()
-	if dist_name=='centos':
+	if dist_name == 'centos':
 		args.python = 'python3.6'
 	else:
 		args.python = 'python3'
@@ -94,10 +69,10 @@ def install_bench(args):
 	# create user if not exists
 	extra_vars = vars(args)
 	extra_vars.update(frappe_user=args.user)
+	extra_vars.update(ansible_python_interpreter='/usr/bin/python3')
 
 	if os.path.exists(tmp_bench_repo):
 		repo_path = tmp_bench_repo
-
 	else:
 		repo_path = os.path.join(os.path.expanduser('~'), 'bench')
 
@@ -142,12 +117,20 @@ def install_bench(args):
 		shutil.rmtree(tmp_bench_repo)
 
 def check_distribution_compatibility():
-	supported_dists = {'ubuntu': [14, 15, 16, 18, 19], 'debian': [8, 9],
-		'centos': [7], 'macos': [10.9, 10.10, 10.11, 10.12]}
+	supported_dists = {
+		'centos': [7],
+		'debian': [8, 9],
+		'macos': [10.9, 10.10, 10.11, 10.12],
+		'ubuntu': [14, 15, 16, 18, 19]
+	}
 
 	dist_name, dist_version = get_distribution_info()
 	if dist_name in supported_dists:
-		if float(dist_version) in supported_dists[dist_name]:
+		try:
+			version = float(dist_version)
+			if version in supported_dists[dist_name]:
+				return
+		except ValueError:
 			return
 
 	print("Sorry, the installer doesn't support {0} {1}. Aborting installation!".format(dist_name, dist_version))
@@ -215,7 +198,7 @@ def clone_bench_repo(args):
 	return success
 
 def run_os_command(command_map):
-	'''command_map is a dictionary of {'executable': command}. For ex. {'apt-get': 'sudo apt-get install -y python2.7'} '''
+	'''command_map is a dictionary of {'executable': command}. For ex. {'apt-get': 'sudo apt-get install -y python3.6'} '''
 	success = True
 	for executable, commands in list(command_map.items()):
 		if find_executable(executable):
@@ -310,7 +293,7 @@ def get_extra_vars_json(extra_args):
 	return ('@' + json_path)
 
 def run_playbook(playbook_name, sudo=False, extra_vars=None):
-	args = ['ansible-playbook', '-c', 'local',  playbook_name , '-vvvv']
+	args = ['ansible-playbook', '-c', 'local', playbook_name, '-vvvv']
 
 	if extra_vars:
 		args.extend(['-e', get_extra_vars_json(extra_vars)])

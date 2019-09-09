@@ -35,7 +35,7 @@ To manually install frappe/erpnext, you can follow this [this wiki](https://gith
 
 #### 1. Install Pre-requisites
 
-- Python 2.7 or Python 3.5+
+- Python 3.6+
 - MariaDB 10+
 - Nginx (for production)
 - Nodejs
@@ -99,7 +99,7 @@ Note: Please do not remove the bench directory the above commands will create
 
 - This is an opinionated setup so it is best to setup on a blank server.
 - Works on Ubuntu 16.04+, CentOS 7+, Debian 8+
-- You may have to install Python 2.7 (eg on Ubuntu 16.04+) by running `apt-get install python-minimal`
+- You may have to install Python 3.6 (e.g., on Ubuntu 16.04+) by running `apt-get install python3-minimal`
 - You may also have to install build-essential and python-setuptools by running `apt-get install build-essential python-setuptools`
 - This script will install the pre-requisites, install bench and setup an ERPNext site
 - Passwords for Frappe Administrator and MariaDB (root) will be asked

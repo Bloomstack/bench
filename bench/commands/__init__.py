@@ -59,10 +59,6 @@ def migrate_env(version, no_backup=False):
 	if not python:
 		log.error('Invalid Python version...')
 		return
-	virtualenv = which('virtualenv')
-	if not virtualenv:
-		log.error('Please install `virtualenv` by running `bench setup requirements`, and try again...')
-		return
 	pvenv = path.joinpath('env')
 
 	try:
@@ -94,7 +90,7 @@ def migrate_env(version, no_backup=False):
 			source_dir.replace(dest_dir)
 
 		log.debug(f"Setting up a New Virtual {python} Environment")
-		exec_cmd(f"{virtualenv} --python {python} {pvenv}", cwd=path)
+		exec_cmd(f"{python} -m venv {pvenv}", cwd=path)
 
 		pip = Path(pvenv, 'bin', 'pip')
 		exec_cmd(f"{pip} install --upgrade pip")

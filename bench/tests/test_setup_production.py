@@ -1,16 +1,18 @@
 
-from bench.tests import test_init
-from bench.config.production_setup import setup_production, get_supervisor_confdir, disable_production
-import bench.utils
-import os
 import getpass
+import os
 import re
-import unittest
 import time
+import unittest
+
+import bench.utils
+from bench.config.production_setup import (disable_production,
+	get_supervisor_confdir, setup_production)
+from bench.tests import test_init
+
 
 class TestSetupProduction(test_init.TestBenchInit):
-	# setUp, tearDown and other tests are defiend in TestBenchInit
-
+	# setUp, tearDown and other tests are defined in TestBenchInit
 	def test_setup_production(self):
 		self.test_multiple_benches()
 
@@ -66,9 +68,9 @@ class TestSetupProduction(test_init.TestBenchInit):
 			f = f.read().decode("utf-8")
 
 			for key in (
-					"upstream {bench_name}-frappe",
-					"upstream {bench_name}-socketio-server"
-				):
+				"upstream {bench_name}-frappe",
+				"upstream {bench_name}-socketio-server"
+			):
 				self.assertTrue(key.format(bench_name=bench_name) in f)
 
 	def assert_nginx_process(self):
@@ -136,7 +138,7 @@ class TestSetupProduction(test_init.TestBenchInit):
 		out = bench.utils.get_cmd_output("sudo supervisorctl status")
 
 		while "STARTING" in out:
-			print ("Waiting for all processes to start...")
+			print("Waiting for all processes to start...")
 			time.sleep(10)
 			out = bench.utils.get_cmd_output("sudo supervisorctl status")
 
