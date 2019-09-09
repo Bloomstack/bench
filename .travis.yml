@@ -4,6 +4,14 @@ dist: xenial
 python:
   - "3.6"
 
+pip:
+  name:
+    - ansible
+    - ndg-httpsclient
+    - pyasn1
+    - pyOpenSSL
+    - urllib3
+
 addons:
   apt:
     packages:

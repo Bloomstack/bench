@@ -1,12 +1,7 @@
-ansible
 Click
 GitPython==2.1.11
 honcho
 jinja2
-ndg-httpsclient
-pyasn1
-pyOpenSSL
 python-crontab
 requests
 semantic_version
-urllib3

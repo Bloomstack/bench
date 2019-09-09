@@ -42,6 +42,13 @@ def install_bench(args):
 		print('Could not install pre-requisites. Please check for errors or install them manually.')
 		return
 
+	success = run_os_command({
+		'pip': "sudo pip install --upgrade setuptools cryptography ansible pip"
+	})
+
+	if not success:
+		could_not_install('Ansible')
+
 	# clone bench repo
 	if not args.run_travis:
 		clone_bench_repo(args)
