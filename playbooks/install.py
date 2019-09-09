@@ -307,6 +307,9 @@ def run_playbook(playbook_name, sudo=False, extra_vars=None):
 	else:
 		cwd = os.path.join(os.path.expanduser('~'), 'bench')
 
+	print('--------------------------------- args ------------------------------', args)
+	print('--------------------------------- cwd ------------------------------', cwd)
+	print('--------------------------------- playbook_name ------------------------------', playbook_name)
 	success = subprocess.check_call(args, cwd=os.path.join(cwd, 'playbooks'))
 	return success
 
