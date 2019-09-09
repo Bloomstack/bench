@@ -46,7 +46,7 @@ def get_frappe(bench_path='.'):
 
 
 def get_env_cmd(cmd, bench_path='.'):
-	return Path(bench_path, 'env', 'bin', cmd).resolve()
+	return Path(bench_path, 'bin', cmd).resolve()
 
 
 def init(path, apps_path=None, no_procfile=False, no_backups=False,
@@ -60,23 +60,21 @@ def init(path, apps_path=None, no_procfile=False, no_backups=False,
 	from bench.config.procfile import setup_procfile
 	from bench.patches import set_all_patches_executed
 
-	import os.path as osp
-
-	if osp.exists(path):
+	if Path(path).exists():
 		if not ignore_exist:
 			raise ValueError(f"Bench instance '{path}' already exists.")
 	else:
-		os.makedirs(path)
+		Path(path).mkdir(parents=True, exist_ok=True)
 
 	for dirname in folders_in_bench:
 		try:
-			os.makedirs(os.path.join(path, dirname))
+			Path(path, dirname).mkdir(parents=True, exist_ok=True)
 		except OSError as e:
 			if e.errno == os.errno.EEXIST:
 				pass
 
 	setup_logging()
-	setup_env(bench_path=path, python=python)
+	setup_env(path, python)
 	make_config(path)
 
 	if clone_from:
@@ -189,7 +187,7 @@ def setup_env(bench_path='.', python='python3'):
 	python = which(python, raise_err=True)
 	pip = get_env_cmd('pip', bench_path)
 
-	exec_cmd(f'{python} -m venv env', cwd=bench_path)
+	exec_cmd(f'{python} -m venv {bench_path}', cwd=bench_path)
 	exec_cmd(f'{pip} -q install --upgrade pip', cwd=bench_path)
 	exec_cmd(f'{pip} -q install wheel', cwd=bench_path)
 	exec_cmd(f'{pip} -q install six', cwd=bench_path)
@@ -235,7 +233,7 @@ def setup_auto_update(bench_path='.'):
 	bench_dir = get_bench_dir(bench_path)
 	add_to_crontab('0 10 * * * cd {bench_dir} &&  {bench} update --auto >> {logfile} 2>&1'.format(
 		bench_dir=bench_dir,
-		bench=Path(bench_dir, 'env', 'bin', 'bench'),
+		bench=Path(bench_dir, 'bin', 'bench'),
 		logfile=Path(bench_dir, 'logs', 'auto_update_log.log')
 	))
 
@@ -640,7 +638,7 @@ def fix_file_perms():
 			os.chmod(os.path.join(dir_path, _dir), 0o755)
 		for _file in files:
 			os.chmod(os.path.join(dir_path, _file), 0o644)
-	bin_dir = './env/bin'
+	bin_dir = './bin'
 	if os.path.exists(bin_dir):
 		for _file in os.listdir(bin_dir):
 			if not _file.startswith('activate'):

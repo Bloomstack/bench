@@ -13,8 +13,8 @@ worker_short: bench worker --queue short --quiet
 worker_long: bench worker --queue long --quiet
 worker_default: bench worker --queue default --quiet
 {% else %}
-workerbeat: sh -c 'cd sites && exec ../env/bin/python -m frappe.celery_app beat -s scheduler.schedule'
-worker: sh -c 'cd sites && exec ../env/bin/python -m frappe.celery_app worker -n jobs@%h -Ofair --soft-time-limit 360 --time-limit 390'
-longjob_worker: sh -c 'cd sites && exec ../env/bin/python -m frappe.celery_app worker -n longjobs@%h -Ofair --soft-time-limit 1500 --time-limit 1530'
-async_worker: sh -c 'cd sites && exec ../env/bin/python -m frappe.celery_app worker -n async@%h -Ofair --soft-time-limit 1500 --time-limit 1530'
+workerbeat: sh -c 'cd sites && exec ../bin/python -m frappe.celery_app beat -s scheduler.schedule'
+worker: sh -c 'cd sites && exec ../bin/python -m frappe.celery_app worker -n jobs@%h -Ofair --soft-time-limit 360 --time-limit 390'
+longjob_worker: sh -c 'cd sites && exec ../bin/python -m frappe.celery_app worker -n longjobs@%h -Ofair --soft-time-limit 1500 --time-limit 1530'
+async_worker: sh -c 'cd sites && exec ../bin/python -m frappe.celery_app worker -n async@%h -Ofair --soft-time-limit 1500 --time-limit 1530'
 {%- endif %}

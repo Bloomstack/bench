@@ -108,7 +108,7 @@ def shell(bench_path='.'):
 	env['PS1'] = '(' + os.path.basename(os.path.dirname(
 		os.path.abspath(__file__))) + ')' + env.get('PS1', '')
 	env['PATH'] = os.path.dirname(os.path.abspath(
-		Path('env', 'bin')) + ':' + env['PATH'])
+		Path('bin')) + ':' + env['PATH'])
 	os.chdir('sites')
 	os.execve(env['SHELL'], [env['SHELL']], env)
 

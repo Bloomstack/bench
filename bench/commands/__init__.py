@@ -59,7 +59,6 @@ def migrate_env(version, no_backup=False):
 	if not python:
 		log.error('Invalid Python version...')
 		return
-	pvenv = path.joinpath('env')
 
 	try:
 		# clear cache before bench dies
@@ -85,14 +84,14 @@ def migrate_env(version, no_backup=False):
 			# WARNING: This is an archive, you might have to use virtualenv --relocate
 			# That's because virtualenv creates symlinks with shebangs pointing to executables.
 			# shebangs, shebangs - ricky martin.
-			source_dir = pvenv
+			source_dir = path
 			dest_dir = archive.joinpath(str(timestamp))
 			source_dir.replace(dest_dir)
 
 		log.debug(f"Setting up a New Virtual {python} Environment")
-		exec_cmd(f"{python} -m venv {pvenv}", cwd=path)
+		exec_cmd(f"{python} -m venv {path}", cwd=path)
 
-		pip = Path(pvenv, 'bin', 'pip')
+		pip = Path(path, 'bin', 'pip')
 		exec_cmd(f"{pip} install --upgrade pip")
 		exec_cmd(f"{pip} install --upgrade setuptools")
 		# TODO: Options
