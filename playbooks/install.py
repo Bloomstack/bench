@@ -23,7 +23,7 @@ def install_bench(args):
 	success = run_os_command({
 		'apt-get': [
 			'sudo apt-get update',
-			'sudo apt-get install -y git build-essential python3-setuptools python3-dev libffi-dev libssl1.0.0'
+			'sudo apt-get install -y git build-essential python3-setuptools python3-dev libffi-dev libssl-dev'
 		],
 		'yum': [
 			'sudo yum groupinstall -y "Development tools"',
@@ -41,6 +41,13 @@ def install_bench(args):
 	if not success:
 		print('Could not install pre-requisites. Please check for errors or install them manually.')
 		return
+
+	success = run_os_command({
+		'pip': "sudo pip install --upgrade setuptools cryptography ansible pip"
+	})
+
+	if not success:
+		could_not_install('Ansible')
 
 	# clone bench repo
 	if not args.run_travis:
@@ -119,7 +126,7 @@ def install_bench(args):
 def check_distribution_compatibility():
 	supported_dists = {
 		'centos': [7],
-		'debian': [8, 9],
+		'debian': [8, 9, 10],
 		'macos': [10.9, 10.10, 10.11, 10.12],
 		'ubuntu': [14, 15, 16, 18, 19]
 	}
@@ -307,9 +314,6 @@ def run_playbook(playbook_name, sudo=False, extra_vars=None):
 	else:
 		cwd = os.path.join(os.path.expanduser('~'), 'bench')
 
-	print('--------------------------------- args ------------------------------', args)
-	print('--------------------------------- cwd ------------------------------', cwd)
-	print('--------------------------------- playbook_name ------------------------------', playbook_name)
 	success = subprocess.check_call(args, cwd=os.path.join(cwd, 'playbooks'))
 	return success
 
