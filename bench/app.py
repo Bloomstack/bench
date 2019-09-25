@@ -212,7 +212,7 @@ def pull_all_apps(bench_path='.', reset=False):
 			print(f"Skipping update for app '{app}'")
 			continue
 
-		repo_dir = get_repo_dir(app, bench_path)
+		app_dir = get_app_dir(app, bench_path)
 		remote = get_remote(app)
 		branch = get_current_branch(app, bench_path)
 
@@ -223,12 +223,12 @@ def pull_all_apps(bench_path='.', reset=False):
 			continue
 
 		try:
-			repo = git.Repo(repo_dir)
+			repo = git.Repo(app_dir)
 		except git.exc.InvalidGitRepositoryError as e:
 			continue
 
 		repo.git.fetch(remote, branch)
-		commit_count = get_commits_to_pull(repo_dir, remote, branch)
+		commit_count = get_commits_to_pull(app_dir, remote, branch)
 		if not commit_count and not reset:
 			print(f"...no updates for '{app}'")
 			continue
@@ -271,7 +271,7 @@ wait for them to be merged in the core.
 		install_app(app, bench_path)
 
 		# remove compiled Python files from the app
-		[path.unlink() for path in repo_dir.rglob('*.py[co]')]
+		[path.unlink() for path in app_dir.rglob('*.py[co]')]
 
 
 def is_version_upgrade(app='frappe', bench_path='.', branch=None):
@@ -307,14 +307,14 @@ def get_current_frappe_version(bench_path='.'):
 
 
 def get_current_branch(app, bench_path='.'):
-	repo_dir = get_repo_dir(app, bench_path)
-	repo = git.Repo(repo_dir)
+	app_dir = get_app_dir(app, bench_path)
+	repo = git.Repo(app_dir)
 	return repo.active_branch.name
 
 
 def get_remote(app, bench_path='.'):
-	repo_dir = get_repo_dir(app, bench_path)
-	repo = git.Repo(repo_dir)
+	app_dir = get_app_dir(app, bench_path)
+	repo = git.Repo(app_dir)
 	remotes = [remote.name for remote in repo.remotes]
 
 	if not remotes:
@@ -332,38 +332,38 @@ def use_rq(bench_path):
 
 
 def fetch_upstream(app, bench_path='.'):
-	repo_dir = get_repo_dir(app, bench_path)
+	app_dir = get_app_dir(app, bench_path)
 	try:
-		repo = git.Repo(repo_dir)
+		repo = git.Repo(app_dir)
 	except git.exc.InvalidGitRepositoryError as e:
 		return
 	repo.git.fetch("upstream")
 
 
 def get_current_version(app, bench_path='.'):
-	repo_dir = get_repo_dir(app, bench_path)
+	app_dir = get_app_dir(app, bench_path)
 	try:
-		version_file = Path(repo_dir, repo_dir.name, '__init__.py')
+		version_file = Path(app_dir, app_dir.name, '__init__.py')
 		return get_version_from_string(version_file.read_text())
 	except AttributeError:
 		# backward compatibility
-		version_file = Path(repo_dir, 'setup.py')
+		version_file = Path(app_dir, 'setup.py')
 		return get_version_from_string(version_file.read_text(), field='version')
 
 
 def get_develop_version(app, bench_path='.'):
-	repo_dir = get_repo_dir(app, bench_path)
-	hooks_file = Path(repo_dir, repo_dir.name, 'hooks.py')
+	app_dir = get_app_dir(app, bench_path)
+	hooks_file = Path(app_dir, app_dir.name, 'hooks.py')
 	return get_version_from_string(hooks_file.read_text(), field='develop_version')
 
 
 def get_upstream_version(app, branch=None, bench_path='.'):
-	repo_dir = get_repo_dir(app, bench_path)
+	app_dir = get_app_dir(app, bench_path)
 	if not branch:
 		branch = get_current_branch(app, bench_path)
 
 	try:
-		repo = git.Repo(repo_dir)
+		repo = git.Repo(app_dir)
 	except git.exc.InvalidGitRepositoryError as e:
 		return
 
@@ -376,12 +376,12 @@ def get_upstream_version(app, branch=None, bench_path='.'):
 
 
 def get_upstream_url(app, bench_path='.'):
-	repo_dir = get_repo_dir(app, bench_path)
-	repo = git.Repo(repo_dir)
+	app_dir = get_app_dir(app, bench_path)
+	repo = git.Repo(app_dir)
 	return repo.git.config("--get", 'remote.upstream.url')
 
 
-def get_repo_dir(app, bench_path='.'):
+def get_app_dir(app, bench_path='.'):
 	return Path(bench_path, 'apps', app)
 
 
@@ -473,6 +473,11 @@ def get_apps_json(path):
 
 def validate_branches():
 	for app in ['frappe', 'erpnext']:
+		app_dir = get_app_dir(app)
+
+		if not app_dir.exists():
+			continue
+
 		branch = get_current_branch(app)
 
 		if branch == "master":

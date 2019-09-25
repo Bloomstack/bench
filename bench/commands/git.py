@@ -5,7 +5,7 @@ from pathlib import Path
 import click
 import git
 
-from bench.app import get_apps, get_repo_dir
+from bench.app import get_apps, get_app_dir
 from bench.utils import set_git_remote_url
 
 
@@ -31,10 +31,10 @@ def remote_urls():
 	"Show apps remote url"
 
 	for app in get_apps():
-		repo_dir = get_repo_dir(app)
+		app_dir = get_app_dir(app)
 
 		try:
-			repo = git.Repo(repo_dir)
+			repo = git.Repo(app_dir)
 		except git.exc.InvalidGitRepositoryError as e:
 			continue
 
