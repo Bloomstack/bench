@@ -1,7 +1,24 @@
-import os, json, click, random, string, hashlib
-from bench.utils import get_sites, get_bench_name, exec_cmd
+# imports - standard imports
+import hashlib
+import os
+import random
+import string
+
+# imports - third party imports
+import click
+from six import string_types
+
+# imports - module imports
+from bench.utils import get_bench_name, get_sites
+
 
 def make_nginx_conf(bench_path, yes=False):
+	conf_path = os.path.join(bench_path, "config", "nginx.conf")
+
+	if not yes and os.path.exists(conf_path):
+		if not click.confirm('nginx.conf already exists and this will overwrite it. Do you want to continue?'):
+			return
+
 	from bench import env
 	from bench.config.common_site_config import get_config
 
@@ -36,10 +53,6 @@ def make_nginx_conf(bench_path, yes=False):
 
 	nginx_conf = template.render(**template_vars)
 
-	conf_path = os.path.join(bench_path, "config", "nginx.conf")
-	if not yes and os.path.exists(conf_path):
-		click.confirm('nginx.conf already exists and this will overwrite it. Do you want to continue?',
-			abort=True)
 
 	with open(conf_path, "w") as f:
 		f.write(nginx_conf)
@@ -214,7 +227,7 @@ def get_sites_with_config(bench_path):
 		if dns_multitenant and site_config.get('domains'):
 			for domain in site_config.get('domains'):
 				# domain can be a string or a dict with 'domain', 'ssl_certificate', 'ssl_certificate_key'
-				if isinstance(domain, str) or isinstance(domain, unicode):
+				if isinstance(domain, string_types):
 					domain = { 'domain': domain }
 
 				domain['name'] = site
@@ -227,7 +240,7 @@ def get_sites_with_config(bench_path):
 def use_wildcard_certificate(bench_path, ret):
 	'''
 		stored in common_site_config.json as:
-	    "wildcard": {
+		"wildcard": {
 			"domain": "*.erpnext.com",
 			"ssl_certificate": "/path/to/erpnext.com.cert",
 			"ssl_certificate_key": "/path/to/erpnext.com.key"
